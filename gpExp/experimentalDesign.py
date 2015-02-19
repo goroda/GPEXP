@@ -1,11 +1,11 @@
-#Copyright (c) 2013-2014, Massachusetts Institute of Technology
+#Copyright (c) 2013-2015, Massachusetts Institute of Technology
 #
 #This file is part of GPEXP:
 #Author: Alex Gorodetsky goroda@mit.edu
 #
 #GPEXP is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
+#the Free Software Foundation, either version 2 of the License, or
 #(at your option) any later version.
 #
 #GPEXP is distributed in the hope that it will be useful,
@@ -17,6 +17,7 @@
 #along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
 #Code
+
 
 
 import numpy as np
@@ -36,117 +37,6 @@ class costFunctionBase(object):
         self.numInputs = nInputs
         self.space = space
 
-class costFuncGPUCbound(costFunctionBase):
-
-    def __init__(self, gaussianProcess, kappa, xTrain, yTrain, nInputs, space,  **kwargs):
-        super(costFuncGPUCbound, self).__init__(nInputs, space)
-        self.xTrain = xTrain
-        self.yTrain = yTrain
-        self.kappa = kappa # kappa is tunable to balance exploit vs explore
-        self.gaussianProcess = copy.copy(gaussianProcess)
-        self.gaussianProcess.train(xTrain, yTrain)
-
-    def evaluate(self, trainPoints):
-        """ 
-        Cost function for bayesian optimization- GP Upper Confidence Bound
-
-        Parameters
-        ----------
-        inputPoints: ndarray 
-            nPoints x dimension - array of points.
-        
-        Returns
-        -------   
-        cost : float
-            Cost function value of experiment with inputPoints.
-                    
-        Notes
-        -----    
-        Snoek 2014
-        
-        """
-        fBest = np.max(self.yTrain)
-        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
-        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
-        predstd = np.sqrt(predvar)
-        cost = -float(predMean - self.kappa*predstd)
-        return cost
- 
-class costFuncPI(costFunctionBase):
-
-    def __init__(self, gaussianProcess, xTrain, yTrain, nInputs, space,  **kwargs):
-        super(costFuncPI, self).__init__(nInputs, space)
-        self.xTrain = xTrain
-        self.yTrain = yTrain
-        self.gaussianProcess = copy.copy(gaussianProcess)
-        self.gaussianProcess.train(xTrain, yTrain)
-
-    def evaluate(self, trainPoints):
-        """ 
-        Cost function for bayesian optimization- probability of improvement
-
-        Parameters
-        ----------
-        inputPoints: ndarray 
-            nPoints x dimension - array of points.
-        
-        Returns
-        -------   
-        cost : float
-            Cost function value of experiment with inputPoints.
-                    
-        Notes
-        -----    
-        Snoek 2014
-        
-        """
-        fBest = np.max(self.yTrain)
-        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
-        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
-        predstd = np.sqrt(predvar)
-        gamma = (fBest - predMean)/predstd
-        phiGamma = spstats.norm.cdf(gamma)
-        cost = -float(phiGamma)
-        return cost
-       
-class costFuncEI(costFunctionBase):
-
-    def __init__(self, gaussianProcess, xTrain, yTrain, nInputs, space,  **kwargs):
-        super(costFuncEI, self).__init__(nInputs, space)
-        self.xTrain = xTrain
-        self.yTrain = yTrain
-        self.gaussianProcess = copy.copy(gaussianProcess)
-        self.gaussianProcess.train(xTrain, yTrain)
-
-    def evaluate(self, trainPoints):
-        """ 
-        Cost function for bayesian optimization- expected improvement
-
-        Parameters
-        ----------
-        inputPoints: ndarray 
-            nPoints x dimension - array of points.
-        
-        Returns
-        -------   
-        cost : float
-            Cost function value of experiment with inputPoints.
-                    
-        Notes
-        -----    
-        Snoek 2014
-        
-        """
-        fBest = np.max(self.yTrain)
-        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
-        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
-        predstd = np.sqrt(predvar)
-        gamma = (fBest - predMean)/predstd
-        phiGamma = spstats.norm.cdf(gamma)
-        probGamma = spstats.norm.pdf(gamma)
-        cost = -predstd*(gamma*phiGamma + probGamma)
-        return cost[0]
-        
 class costFunctionGP_IVAR(costFunctionBase):
      
     def __init__(self, gaussianProcess, nInputs, space, version=1, **kwargs):
@@ -420,9 +310,6 @@ class ExperimentalDesign(object):
         
         return out
     
-#class ExperimentalDesignGreedy(ExperimentalDesign):
-#    pass
-
 class ExperimentalDesignDerivative(ExperimentalDesign):
     
     def __init__(self, costFunction, nPoints, nDims):
@@ -441,19 +328,9 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
         n = None
         if gradIn.size > 0:
             gradIn[:] = self.costFunction.derivative(in0)
-            #print gradIn
-            #print "norm of grad ", np.linalg.norm(gradIn)
             gradIn[:] = gradIn[:]# + self.addGrad(in0)
-            #n = np.linalg.norm(gradIn)
-            #if n > 10:
-            #    print "potential Error "
 
         out = self.costFunction.evaluate(in0) - 10.0*np.min(np.array([self.boundsFunction(in0), 0.0]))
-        #print "bounds ", 
-        #print "in0 ", in0.shape
-        #add = self.addObj(in0)
-        #print "adding ", add
-        #out = out + add
         sys.stdout.write("\r Optimization (Cost = %s, ||g||= %s) OK " % (str(out), str(n)) )
         sys.stdout.flush()
         #print "end obj exp design", out, n
@@ -546,19 +423,12 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
             opt = copy.copy(local_opt)
             opt.set_min_objective(self.objFunc)
 
-            #print "Start objective "#, self.objFunc(startValues[ii], np.zeros((0)))   
-            #print startValues[ii]   
             pts = opt.optimize(startValues[ii].reshape((len(startValues[ii])*self.nDims)))
-            #print "optimization of designs successful "
             optResults[ii] = opt.last_optimize_result()
             sol.append(pts)
-            #print "\nEnd objective\n"#, self.objFunc(sol[ii], np.zeros((0)))
-            #obj[ii] = self.objFunc(sol[ii], np.zeros((0))) 
             obj[ii] = opt.last_optimum_value()
-            #print "\nEnd objective ", obj[-1]
         
         indBest = np.argmin(obj)    
-        #print sol
         endVals = np.reshape(sol[indBest], (len(sol[indBest])/self.nDims, self.nDims))
         finalGrad = self.costFunction.derivative(endVals)
         #print "IVAR at minimum  ", obj[indBest], " ||dIVAR/dPts|| at min is ", \
@@ -658,196 +528,6 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
        
         return endVals        
 
-
-class performExpDesignWithHypContinuation(object):
-
-    def __init__(self, experiment, hypList):
-        super(performExpDesignWithHypContinuation, self).__init__()
-        self.experiment = copy.copy(experiment)
-        self.hypList = hypList
-        self.origHyperParams = copy.copy(experiment.costFunction.gaussianProcess.kernel.hyperParam)
-        
-    def begin(self, startValues, lbounds=[], rbounds=[], **kwargs):
-
-        saveList = None
-        if 'returnAll' in kwargs:
-            saveList = []
-            for pts in startValues:
-                saveList.append([100000, pts])
-
-        endValsList = startValues # keeps track of all ending points
-        for hyperParams in self.hypList:
-
-            newList = []
-            currCost = []
-            for vals in endValsList:
-                
-                self.experiment.costFunction.gaussianProcess.updateKernelParams(hyperParams)
-                endVals = self.experiment.begin(startValues, lbounds, rbounds)
-                #reset Parameters to original
-                self.experiment.costFunction.gaussianProcess.updateKernelParams(self.origHyperParams)
-                currCostv = self.experiment.costFunction.evaluate(endVals)
-                currCost.append(currCostv)
-                newList.append(endVals[:])
-
-            if saveList is not None:
-                saveList.append(newList[np.argmin(np.array(currCost))])
-                print "best Current cost ", np.min(currCost)
-
-            endValsList = newList;
-        
-        costs = np.zeros((len(startValues)))
-        ii = 0
-        for vals in endValsList:
-            costs[ii] = self.experiment.costFunction.evaluate(vals)
-            ii = ii+1
-
-        bestMin = np.argmin(costs)
-        if saveList is not None:
-            return endValsList[bestMin], saveList
-        else:
-            return endValsList[bestMin]
-
-
-class performExpDesignWithContinuation(object):
-
-    def __init__(self, noiseStart, experiment):
-        super(performExpDesignWithContinuation, self).__init__()
-        self.reduceFactor = 0.1
-        self.noiseStart = noiseStart
-        self.experiment = copy.copy(experiment)
-        self.noiseEnd = self.experiment.costFunction.gaussianProcess.noise
-    
-    def begin3(self, startValues, lbounds = [], rbounds = [],**kwargs):
-       
-        # One step at a higher level and just evaluate at desired level
-        print "Noise Start ", self.noiseStart       
-        currentPenalty = self.noiseStart
-        endValsList = startValues
-        saveList = None
-        if 'returnAll' in kwargs:
-            saveList = []
-            for pts in startValues:
-                saveList.append([100000, pts])
-
-        newList = []
-        currCost = []
-        for vals in endValsList:
-            endVals = self.innerOpt(currentPenalty, [vals], lbounds, rbounds)
-            currCost.append(self.experiment.costFunction.evaluate(endVals))
-            newList.append(endVals[:])
-        if saveList is not None:
-            saveList.append([currentPenalty, newList[np.argmin(np.array(currCost))]])
-        
-        endValsList = newList;
-        self.experiment.costFunction.gaussianProcess.noise = self.noiseEnd
-
-        costs = np.zeros((len(startValues)))
-        ii = 0
-        for vals in endValsList:
-            costs[ii] = self.experiment.costFunction.evaluate(vals)
-            ii = ii+1
-
-        bestMin = np.argmin(costs)
-        if saveList is not None:
-            return endValsList[bestMin], saveList
-        else:
-            return endValsList[bestMin]
-
-    def begin2(self, startValues, lbounds = [], rbounds = [], **kwargs):
-
-        currentPenalty = self.noiseStart
-        endValsList = startValues
-        saveList = None
-        if 'returnAll' in kwargs:
-            saveList = []
-            for pts in startValues:
-                saveList.append([100000, pts])
-
-        while currentPenalty > 1e-8:
-            newList = []
-            currCost = []
-            for vals in endValsList:
-                endVals = self.innerOpt2(currentPenalty, [vals], lbounds, rbounds)
-                currCost.append(self.experiment.costFunction.evaluate(endVals))
-                newList.append(endVals[:])
-            if saveList is not None:
-                saveList.append([currentPenalty, newList[np.argmin(np.array(currCost))]])
-            currentPenalty= currentPenalty*self.reduceFactor
-            print "Current Penalty Level", currentPenalty
-            #print "point and cost ", newList[np.argmin(np.array(currCost))], np.min(np.array(currCost))
-            #print "\n"
-            endValsList = newList;
-        
-        costs = np.zeros((len(startValues)))
-        ii = 0
-        for vals in endValsList:
-            costs[ii] = self.experiment.costFunction.evaluate(vals)
-            ii = ii+1
-
-        bestMin = np.argmin(costs)
-        if saveList is not None:
-            return endValsList[bestMin], saveList
-        else:
-            return endValsList[bestMin]
-
-    def begin(self, startValues, lbounds = [], rbounds = [], **kwargs):
-        
-        currentNoiseLevel = self.noiseStart
-        endValsList = startValues
-        saveList = None
-        if 'returnAll' in kwargs:
-            saveList = []
-            for pts in startValues:
-                saveList.append([100000, pts])
-
-        while currentNoiseLevel > self.noiseEnd:
-            newList = []
-            currCost = []
-            for vals in endValsList:
-                endVals = self.innerOpt(currentNoiseLevel, [vals], lbounds, rbounds)
-                currCost.append(self.experiment.costFunction.evaluate(endVals))
-                newList.append(endVals[:])
-            if saveList is not None:
-                saveList.append([currentNoiseLevel, newList[np.argmin(np.array(currCost))]])
-            currentNoiseLevel = currentNoiseLevel*self.reduceFactor
-            print "Current Noise Level", self.experiment.costFunction.gaussianProcess.noise, self.noiseEnd
-            #print "point and cost ", newList[np.argmin(np.array(currCost))], np.min(np.array(currCost))
-            #print "\n"
-            endValsList = newList;
-        
-        self.experiment.costFunction.gaussianProcess.noise = self.noiseEnd
-
-        costs = np.zeros((len(startValues)))
-        ii = 0
-        for vals in endValsList:
-            costs[ii] = self.experiment.costFunction.evaluate(vals)
-            ii = ii+1
-
-        bestMin = np.argmin(costs)
-        if saveList is not None:
-            return endValsList[bestMin], saveList
-        else:
-            return endValsList[bestMin]
-
-    
-    def innerOpt2(self, penaltyIn, startValues, lbounds = [], rbounds =[]):
-        
-        #ADD THE GRADIENT
-        addObj = lambda in0: np.sum(penaltyIn*self.experiment.costFunction.gaussianProcess.evaluateVariance(in0), axis=0)
-        addGrad = lambda in0: penaltyIn*self.experiment.costFunction.gaussianProcess.evaluateVarianceDerivWRTnewpt(in0)
-
-        self.experiment.addPenaltyToObjective(addObj, addGrad)
-        endVals = self.experiment.begin(startValues, lbounds, rbounds)
-        return endVals
-
-    def innerOpt(self, noiseIn, startValues, lbounds = [], rbounds = []):
-        
-        self.experiment.costFunction.gaussianProcess.noise = noiseIn
-        endVals = self.experiment.begin(startValues, lbounds, rbounds)
-
-        return endVals
-
 class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
     
     def __init__(self, costFunction, nPoints, nPointsBatch, nDims, **kwargs):
@@ -894,7 +574,6 @@ class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
             
                 points, pointsTrace = exp.begin(startVals, lbounds, rbounds, returnAll=1)
                 overallPointsTrace.append(pointsTrace)
-                #print "pointsTrace, ", pointsTrace
             else:
                 points = expCurr.begin(startVals, lbounds, rbounds)
             err = currCost.evaluate(points)
@@ -952,13 +631,9 @@ class ExperimentalDesignGreedyWithDerivatives(ExperimentalDesignDerivative):
                 #exp = performExpDesignWithContinuation(self.useContinuation, expCurr)
                 exp = performExpDesignWithHypContinuation(expCurr, self.hypList)
                
-                #points, pointsTrace = exp.begin3(startVals, lbounds, rbounds, returnAll=1)
                 points, pointsTrace = exp.begin(startVals, lbounds, rbounds, returnAll=1)
-                #points, pointsTrace = exp.begin2(startVals, lbounds, rbounds, returnAll=1)
                 overallPointsTrace.append(pointsTrace)
-                #print "pointsTrace, ", pointsTrace
             else:
-                #points = expCurr.begin(startVals, lbounds, rbounds)
                 points = expCurr.beginWithVarGreedy(nodesKeep=points, lbounds=lbounds, rbounds=rbounds)
             err = currCost.evaluate(points)
             print "Current Error ", err
@@ -1035,7 +710,6 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
             if weights is not None:
                 k = k * weights
             indKeep.append(np.argmax(k))
-            #ptsChooseFrom = np.delete(ptsChooseFrom, (indKeep[-1]), axis=0)
  
         else:
             
@@ -1056,12 +730,123 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
             if weights is not None:
                 k = k * weights
             indKeep.append(np.argmax(k))
-            #print "indKeep ", indKeep
-            #ptsChooseFrom = np.delete(ptsChooseFrom, (indKeep[-1]), axis=0)
  
         pointsHave = pointsHave+1
-        #print indKeep[-1]
-        #print self.kernel.kernelMCpoints[indKeep[-1],:]
  
     return mcPoints[indKeep,:]
+
+##########################################################
+# Some Cost Functions for Bayesian Optimization
+##########################################################
+class costFuncGPUCbound(costFunctionBase):
+
+    def __init__(self, gaussianProcess, kappa, xTrain, yTrain, nInputs, space,  **kwargs):
+        super(costFuncGPUCbound, self).__init__(nInputs, space)
+        self.xTrain = xTrain
+        self.yTrain = yTrain
+        self.kappa = kappa # kappa is tunable to balance exploit vs explore
+        self.gaussianProcess = copy.copy(gaussianProcess)
+        self.gaussianProcess.train(xTrain, yTrain)
+
+    def evaluate(self, trainPoints):
+        """ 
+        Cost function for bayesian optimization- GP Upper Confidence Bound
+
+        Parameters
+        ----------
+        inputPoints: ndarray 
+            nPoints x dimension - array of points.
+        
+        Returns
+        -------   
+        cost : float
+            Cost function value of experiment with inputPoints.
+                    
+        Notes
+        -----    
+        Snoek 2014
+        
+        """
+        fBest = np.max(self.yTrain)
+        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
+        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
+        predstd = np.sqrt(predvar)
+        cost = -float(predMean - self.kappa*predstd)
+        return cost
+ 
+class costFuncPI(costFunctionBase):
+
+    def __init__(self, gaussianProcess, xTrain, yTrain, nInputs, space,  **kwargs):
+        super(costFuncPI, self).__init__(nInputs, space)
+        self.xTrain = xTrain
+        self.yTrain = yTrain
+        self.gaussianProcess = copy.copy(gaussianProcess)
+        self.gaussianProcess.train(xTrain, yTrain)
+
+    def evaluate(self, trainPoints):
+        """ 
+        Cost function for bayesian optimization- probability of improvement
+
+        Parameters
+        ----------
+        inputPoints: ndarray 
+            nPoints x dimension - array of points.
+        
+        Returns
+        -------   
+        cost : float
+            Cost function value of experiment with inputPoints.
+                    
+        Notes
+        -----    
+        Snoek 2014
+        
+        """
+        fBest = np.max(self.yTrain)
+        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
+        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
+        predstd = np.sqrt(predvar)
+        gamma = (fBest - predMean)/predstd
+        phiGamma = spstats.norm.cdf(gamma)
+        cost = -float(phiGamma)
+        return cost
+       
+class costFuncEI(costFunctionBase):
+
+    def __init__(self, gaussianProcess, xTrain, yTrain, nInputs, space,  **kwargs):
+        super(costFuncEI, self).__init__(nInputs, space)
+        self.xTrain = xTrain
+        self.yTrain = yTrain
+        self.gaussianProcess = copy.copy(gaussianProcess)
+        self.gaussianProcess.train(xTrain, yTrain)
+
+    def evaluate(self, trainPoints):
+        """ 
+        Cost function for bayesian optimization- expected improvement
+
+        Parameters
+        ----------
+        inputPoints: ndarray 
+            nPoints x dimension - array of points.
+        
+        Returns
+        -------   
+        cost : float
+            Cost function value of experiment with inputPoints.
+                    
+        Notes
+        -----    
+        Snoek 2014
+        
+        """
+        fBest = np.max(self.yTrain)
+        newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
+        predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
+        predstd = np.sqrt(predvar)
+        gamma = (fBest - predMean)/predstd
+        phiGamma = spstats.norm.cdf(gamma)
+        probGamma = spstats.norm.pdf(gamma)
+        cost = -predstd*(gamma*phiGamma + probGamma)
+        return cost[0]
+        
 

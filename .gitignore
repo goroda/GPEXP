@@ -1,3 +1,5 @@
 *.swp
 *~
 *.pyc
+update_file_headers.py
+fileheaders.txt

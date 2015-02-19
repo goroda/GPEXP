@@ -1,11 +1,11 @@
-#Copyright (c) 2013-2014, Massachusetts Institute of Technology
+#Copyright (c) 2013-2015, Massachusetts Institute of Technology
 #
 #This file is part of GPEXP:
 #Author: Alex Gorodetsky goroda@mit.edu
 #
 #GPEXP is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
+#the Free Software Foundation, either version 2 of the License, or
 #(at your option) any later version.
 #
 #GPEXP is distributed in the hope that it will be useful,
@@ -17,6 +17,7 @@
 #along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
 #Code
+
 
 
 import numpy as np
@@ -55,7 +56,6 @@ class GP(object):
         return np.zeros((pts.shape[0]))
      
     def train(self, pts, evalsIn, noiseIn=None):
-
         """
         Computes GP coefficients
         
@@ -117,8 +117,6 @@ class GP(object):
         
         out = np.dot(kernelvals, self.coeff) + self.gpPriorMean(newpt)
             
-        # below code should be parallelized
-        
         if compvar:
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
@@ -184,8 +182,6 @@ class GP(object):
                                                 kernelvals, invG))))
             else:
                 print "NOT IMPLEMENTED YET"
-        #print "Condition Number of Covariance Matrix ", np.linalg.cond(self.covarianceMatrix)
-
         self.pts = nodes.copy()
           
     def evaluateVariance(self, newpt, parallel=1):
@@ -220,19 +216,16 @@ class GP(object):
         #print "Evaluate Variance "
         nThreshForParallel = 500001 # at this level both parallel and serial seem to perform similarly
         if numNewPoints < nThreshForParallel or parallel==0:
-            #print "Not parallel ", numNewPoints
             kernelvals = np.zeros((numNewPoints, numTrainPoints))
             for jj in xrange(numTrainPoints):
                 pt = np.reshape(self.pts[jj,:], (1,self.kernel.dimension))
                 kernelvals[:,jj] = self.kernel.evaluate(newpt, pt)
                    
-            # below code should be parallelized
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
             for jj in xrange(numNewPoints):
                 var[jj] = var_newpt[jj] - \
                     np.dot(kernelvals[jj,:], np.dot(self.precisionMatrix, kernelvals[jj,:].T))
-            #print "Done "
             return var
         else:
             var =  parallel_utilities.parallelizeMcForLoop(self.evaluateVariance, 0, newpt)
@@ -253,7 +246,6 @@ class GP(object):
             evals[:,ii] = self.kernel.evaluate(p, newpt)
         
         evalSigma = np.dot(self.precisionMatrix, evals.T) #N_{GP} X N
-        #FIX THIS
         for ii, pt in enumerate(newpt):
             out[ii,:] =  -2.0 *np.dot(derivs[ii,:,:], evalSigma[:,ii])
 
@@ -352,6 +344,24 @@ class GP(object):
         return y
     
     def computeLogLike(self, pts, evals):
+        """ 
+        Compute the Marginal Log-Likelihood of the GP with pts and evals
+
+        Parameter
+        ---------
+        pts : ndarray 
+            locations at which to generate samples
+        evals : data at the locations
+                variance of noise to add to gp samples
+        Returns
+        -------
+        y : 1darray
+            samples at x
+            
+        Notes
+        -----
+        """
+
         return self.loglikeParams(pts, evals)
 
     def loglikeParams(self, pts, evals, returnDeriv=0,noiseIn=None):
@@ -362,7 +372,6 @@ class GP(object):
                         pts, self.noise)
                 invMat = np.linalg.pinv(covMat)
             else:
-                print "HERE"
                 nodes = pts
                 nNodes = len(nodes)
                 nu = int(np.floor(nNodes*self.FITC))
@@ -389,34 +398,18 @@ class GP(object):
                                                 np.dot(invG, kernelvals.T))), np.dot(
                                                 kernelvals, invG))))
 
-
         else:
             covMat = gp_kernel_utilities.calculateCovarianceMatrix(self.kernel, 
                         pts, noiseIn=noiseIn)
             invMat = np.linalg.pinv(covMat)
         
-        #print "covMat ", covMat 
 
-        u, s, v = np.linalg.svd(covMat)
-        #Ensure Good Conditioning
-        indGood = s>1e-7
-        u = u[:,indGood]
-        v = v[indGood,:]
-        s = s[indGood]
-
-       # print "diffCovmat ", np.linalg.norm(covMat- 
-       #         np.dot(u,np.dot(np.diag(s), v)))
-       
         sdet, logdet = np.linalg.slogdet(covMat)
-        #print "logDet ", logdet
-        
-        #precEval = np.dot(v.T, np.dot(np.diag(s**-1), np.dot(u.T, evals)))
         precEval = np.dot(invMat, evals)
 
         firstTerm = -0.5 * np.dot(evals, precEval)
         secondTerm =  -0.5 * logdet
         thirdTerm = -len(evals)/2.0 * np.log(2.0*np.pi) 
-        #print "terms ", firstTerm, secondTerm, thirdTerm
         out = firstTerm + secondTerm + thirdTerm
         
         keys = self.kernel.hyperParam.keys() + ['noise']
@@ -436,31 +429,38 @@ class GP(object):
                     for kk, key in enumerate(keys): #loop over hyParams
                         derivMat[ii,jj,kk] = analyDeriv[key]
 
-            #outD = np.zeros((len(keys)))
-            #invMat = np.dot(v.T, np.dot(np.diag(s**-1), u.T))
             term1 = np.outer(precEval, precEval)- invMat
-            #print "term1 ", term1           
             outD = dict({})
             for ii in xrange(len(keys)):
-                #print "derivMat ", derivMat[:,:,ii]
                 outD[keys[ii]] =  0.5 * np.trace(np.dot( term1, derivMat[:,:,ii])) 
                 if keys[ii] == 'noise':
-                    #print "self.noise ", self.noise
-                    #print "traceQ ", outD[keys[ii]]*2.0
                     outD[keys[ii]] *= self.noise*2.0
-                    #print "outD[keys[ii]] ", outD[keys[ii]]
             
-
-            #print "end"
             return out, outD
         else:
-            #print "end"
             return out
     
     def getHypParamNames(self):
+        
         return self.kernel.hyperParams.keys()
 
     def updateKernelParams(self, paramsIn):
+        """ 
+        Set new hyperparameters
+
+        Parameter
+        ---------
+        paramsIn : dictionary
+                   new hyperparameters
+        Returns
+        -------
+        y : 1darray
+            samples at x
+            
+        Notes
+        -----
+        """
+
         #print "params ", params 
         params = copy.copy(paramsIn)
         if 'noise' in params.keys():
@@ -469,10 +469,37 @@ class GP(object):
         self.kernel.updateHyperParameters(params)
 #     
     def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None):
-        """
-        useNoise = None for noise learning
-                 = float for common noise for each
-                 = ndarray for separate noise
+        """ 
+        Compute the optimal hyperparameters by maximizing the marginal log likelihood
+
+        Parameter
+        ---------
+        pts : ndarray 
+            locations at which to generate samples
+        evals : data at the locations
+                variance of noise to add to gp samples
+        paramsStart : dictionary
+                      hyperpameters which initialize the optimization
+                      defaults to current GP hyperpameters
+        paramsLowerBounds : dictionary
+                            lower bounds for parameters 
+                            defaults to max([x/10, 1e-3] where x
+                            is each hyperpameter
+        paramsUpperBounds : dictionary
+                            upper bounds for parameters 
+                            defaults to max([x*10, 10] where x
+                            is each hyperpameter
+
+        useNoise : None for noise learning bounds are [10^-12, 1e-2]
+                 : float for common noise for each data point
+                 : ndarray for separate noise for each data point
+        Returns
+        -------
+        y : 1darray
+            samples at x
+            
+        Notes
+        -----
         """
         #return -logLike
         dimension = np.shape(pts)[1]
@@ -506,12 +533,7 @@ class GP(object):
             paramUb.append(1e-2)
             paramVals.append(1e-5) #Start noise
 
-        # Want to maximize logLIke -> minimize - logLike
-        #print "pts ", pts
-        #print "evals ", evals
         def objFunc(in0, gradIn):
-            #print "begin obj max like"
-            #print "here ", in0
             self.updateKernelParams(dict(zip(keys,in0)))
             if gradIn.size > 0:
                 margLogLike, derivs= self.loglikeParams(pts, evals, returnDeriv=1)
@@ -519,76 +541,39 @@ class GP(object):
                 for ii in xrange(len(keys)):
                     outD[ii] = derivs[keys[ii]]
                 gradIn[:] = -outD
-                #print "params ", in0
-                #print "val ",  margLogLike
-                #print "gradIn ", gradIn
-                #print self.kernel.hyperParam, self.noise, -margLogLike, np.linalg.norm(gradIn[:])
                 
             else:
                 margLogLike= self.loglikeParams(pts, evals, returnDeriv=0)
             
             out = -margLogLike
-            #print "loglike ", out
             return out 
         
        
         paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc)
-        #print "ok"
         bestParams = np.zeros(np.shape(paramsOut))
         
-        #print "keys ", keys
-        #print "paramsOut ", paramsOut
-        #print "zip ", zip(keys, paramsOut)
         params = dict(zip(keys,paramsOut))
-        #print "New Parameters ", params
         self.updateKernelParams(params)
         return params, optValue
                
     def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction):
         
-         #print "length of StartValues ", len(startValues)
-         #print "paramLb and Ub ", paramLowerBounds, paramUpperBounds
-            
-         #opt = nlopt.opt(nlopt.GD_STOGO, len(startValues))
-         #opt = nlopt.opt(nlopt.G_MLSL_LDS, len(startValues))
-         #opt.set_lower_bounds(paramLowerBounds)
-         #opt.set_upper_bounds(paramUpperBounds)
-         #opt.set_min_objective(costFunction)
-
-#        #print "startValues ", startValues
          local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
-         #local_opt = nlopt.opt(nlopt.LD_MMA, len(startValues))
-        
-         #local_opt = nlopt.opt(nlopt.LD_LBFGS, len(startValues))
-         #local_opt = nlopt.opt(nlopt.LD_TNEWTON_PRECOND_RESTART, len(startValues))
-         #local_opt = nlopt.opt(nlopt.LD_SLSQP, len(startValues))
-         
-         #local_opt = nlopt.opt(nlopt.LN_NELDERMEAD, len(startValues))
-         #local_opt.set_ftol_rel(1e-2)
+
          local_opt.set_xtol_rel(1e-3)
          local_opt.set_ftol_rel(1e-3)
-         #local_opt.set_xtol_abs(1e-40)
-         #local_opt.set_ftol_rel(1e-40)
          local_opt.set_ftol_abs(1e-3)
          local_opt.set_maxtime(10);
-         local_opt.set_maxeval(40); #200
-#            
+         local_opt.set_maxeval(40); 
+            
          local_opt.set_lower_bounds(paramLowerBounds)
          local_opt.set_upper_bounds(paramUpperBounds)
 
-         
          try:
             local_opt.set_min_objective(costFunction)       
             sol = local_opt.optimize(startValues)
          except nlopt.RoundoffLimited:
             return startValues, None
-         #opt.set_local_optimizer(local_opt)
-         #opt.set_population(1)
-         #sol = opt.optimize(startValues)
-         #sol = opt.optimize()
-         #print "Negative LogLikeOpt ", local_opt.last_optimum_value()
-         #print "Log Like Optimizer Result ", local_opt.last_optimize_result()
-#        #print "sol ", sol
          return sol, local_opt.last_optimum_value()
 #===============================================================================
         

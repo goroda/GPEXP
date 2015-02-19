@@ -1,11 +1,11 @@
-#Copyright (c) 2013-2014, Massachusetts Institute of Technology
+#Copyright (c) 2013-2015, Massachusetts Institute of Technology
 #
 #This file is part of GPEXP:
 #Author: Alex Gorodetsky goroda@mit.edu
 #
 #GPEXP is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
+#the Free Software Foundation, either version 2 of the License, or
 #(at your option) any later version.
 #
 #GPEXP is distributed in the hope that it will be useful,
@@ -19,6 +19,7 @@
 #Code
 
 
+
 import numpy as np
 from scipy.sparse.linalg import LinearOperator
 #import scipy.sparse.linalg.eigen.arpack as sparpack
@@ -29,6 +30,42 @@ import parallel_utilities
 # Utilities
 #################################       
 """                       
+def calculateCovarianceMatrix(kernel, points, nugget=0.0):
+        """ 
+        Calculate covariance matrix
+
+        Parameters
+        ---------- 
+        points : ndarray 
+            Locations at which to evaluate covariance matrix
+            
+        nugget : float or ndarray
+            nugget for covariance matrix. default=0
+            
+        Returns
+        -------
+        covarianceMatrix : ndarray 
+            Covariance matrix 
+        
+        Notes
+        -----
+        """
+        size_of_mat, dim = points.shape
+        covarianceMatrix = np.zeros((size_of_mat,size_of_mat))
+        for jj in xrange(size_of_mat):
+            point = np.reshape(points[jj,:] , (1, dim) )
+            covarianceMatrix[jj,:] = \
+                kernel.evaluate(points, point)
+            covarianceMatrix[jj,jj] = covarianceMatrix[jj,jj] 
+
+        if isinstance(nugget, float):
+            dadd = nugget*np.ones((size_of_mat))
+        elif isinstance(nugget, np.ndarray):
+            dadd = nugget[:]
+        
+        covarianceMatrix = covarianceMatrix + np.diag(dadd)
+        return covarianceMatrix
+
 def calculateCovarianceMatrixFITC(kernel, nodes, nugget, fitc, returnCov=False):
     nNodes = len(nodes)
     if isinstance(fitc, float):
@@ -65,42 +102,7 @@ def calculateCovarianceMatrixFITC(kernel, nodes, nugget, fitc, returnCov=False):
             return covmat, precMat, snodes
         return covmat, precMat
 
-def calculateCovarianceMatrix(kernel, points, nugget=0.0):
-        """ 
-        Calculate covariance matrix
 
-        Parameters
-        ---------- 
-        points : ndarray 
-            Locations at which to evaluate covariance matrix
-            
-        nugget : float or ndarray
-            nugget for covariance matrix. default=0
-            
-        Returns
-        -------
-        covarianceMatrix : ndarray 
-            Covariance matrix 
-        
-        Notes
-        -----
-        """
-        size_of_mat, dim = points.shape
-        covarianceMatrix = np.zeros((size_of_mat,size_of_mat))
-        for jj in xrange(size_of_mat):
-            point = np.reshape(points[jj,:] , (1, dim) )
-            covarianceMatrix[jj,:] = \
-                kernel.evaluate(points, point)
-            covarianceMatrix[jj,jj] = covarianceMatrix[jj,jj] 
-
-        if isinstance(nugget, float):
-            dadd = nugget*np.ones((size_of_mat))
-        elif isinstance(nugget, np.ndarray):
-            dadd = nugget[:]
-        
-        covarianceMatrix = covarianceMatrix + np.diag(dadd)
-        return covarianceMatrix
-#counter = 0
 def covTimesV(b, kernel, mcPoints):
     """ 
     Performs the operation of covariance matrix.
