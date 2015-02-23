@@ -23,13 +23,13 @@ License: GPL2
 Experimental design deals with the issue of determining where to obtain new data in order to build accurate models.
 Gaussian process regression is a useful method to build models of raw data or to build surrogate models for complex computational simulations. 
 
-This software is different from most other GP software because it focuses on combining experimental design and Gaussian process regression. It was developed for performing the studies provided in the paper detailing the integrated variance experimental design function (link arxiv paper). It consists of the following options for kernels and experimental design cost functions (though adding new kernels and cost functions is fairly trivial)
+This software is different from most other GP software because it focuses on combining experimental design and Gaussian process regression. It was developed for performing the studies provided in the paper detailing the integrated variance experimental design function (link arxiv paper). The current software contains the following options for kernels and experimental design cost functions (though adding new kernels and cost functions is fairly trivial).
 
-Kernels
--------
+(Multidimensional) Kernels
+---------------------------
   * Squared exponential
-    * isotropic high dimensional 
-    * automatic relevance determination high dimensional
+    * isotropic 
+    * automatic relevance determination 
   * Isotropic Matern kernel
   * Mehler Kernel
 
