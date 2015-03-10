@@ -21,9 +21,23 @@
 
 
 import numpy as np
+try:
+    import nlopt as nlopt
+    NLOPT = True
+except ImportError:
+    NLOPT = False
+ 
+#NLOPT = False
+if NLOPT is False:
+    try:
+        from  scipy.optimize import fmin_slsqp as slsqp
+    except ImportError:
+        print "Warning: no optimization package found!"
+
+
+
 import scipy.optimize as optimize
 import scipy.stats as spstats
-import nlopt as nlopt
 import sys
 import parallel_utilities
 import gp_kernel_utilities
@@ -389,55 +403,82 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
         -----   
 
         """
-
-        #local_opt = nlopt.opt(nlopt.LD_MMA, len(startValues[0])*self.nDims)
-        local_opt = nlopt.opt(nlopt.LD_SLSQP, len(startValues[0])*self.nDims)
-        #local_opt = nlopt.opt(nlopt.LD_LBFGS, len(startValues[0])*self.nDims)
-        #local_opt = nlopt.opt(nlopt.LD_TNEWTON_PRECOND_RESTART, len(startValues[0])*self.nDims)
-        local_opt.set_ftol_rel(1e-6)
-        local_opt.set_ftol_abs(1e-6)
-        local_opt.set_xtol_rel(1e-6)
-
-        #local_opt.set_xtol_rel(1e-12)
-        #local_opt.set_ftol_rel(1e-12)
-
-        #print "HERE"
-        #local_opt.set_maxtime(50); #seconds
-        #local_opt.set_maxeval(20);
-        #local_opt.add_inequality_constraint(constraint, 0.0)
         
-        #opt = local_opt
-        if len(lbounds)==0:
-            local_opt.set_lower_bounds(-100.0*np.ones((len(startValues[0])*self.nDims)))
-            local_opt.set_upper_bounds(100.0* np.ones((len(startValues[0])*self.nDims)))
-        else:
-            local_opt.set_lower_bounds(lbounds)
-            local_opt.set_upper_bounds(rbounds)
+        if NLOPT is True:
+            local_opt = nlopt.opt(nlopt.LD_SLSQP, len(startValues[0])*self.nDims)
+            local_opt.set_ftol_rel(1e-6)
+            local_opt.set_ftol_abs(1e-6)
+            local_opt.set_xtol_rel(1e-6)
+
+            #opt = local_opt
+            if len(lbounds)==0:
+                local_opt.set_lower_bounds(-100.0*np.ones((len(startValues[0])*self.nDims)))
+                local_opt.set_upper_bounds(100.0* np.ones((len(startValues[0])*self.nDims)))
+            else:
+                local_opt.set_lower_bounds(lbounds)
+                local_opt.set_upper_bounds(rbounds)
+                
+            #local_opt.add_inequality_constraint(self.constraint, 0.0)
+            sol = []
+            obj = np.zeros((len(startValues)))
+            optResults = np.zeros((len(startValues)))
+            #print "begin optimization of designs"
+            for ii in xrange(len(startValues)):
+                opt = copy.copy(local_opt)
+                opt.set_min_objective(self.objFunc)
+
+                pts = opt.optimize(startValues[ii].reshape((len(startValues[ii])*self.nDims)))
+                optResults[ii] = opt.last_optimize_result()
+                sol.append(pts)
+                obj[ii] = opt.last_optimum_value()
             
-        #local_opt.add_inequality_constraint(self.constraint, 0.0)
-        sol = []
-        obj = np.zeros((len(startValues)))
-        optResults = np.zeros((len(startValues)))
-        #print "begin optimization of designs"
-        for ii in xrange(len(startValues)):
-            opt = copy.copy(local_opt)
-            opt.set_min_objective(self.objFunc)
+            indBest = np.argmin(obj)    
+            endVals = np.reshape(sol[indBest], (len(sol[indBest])/self.nDims, self.nDims))
+            finalGrad = self.costFunction.derivative(endVals)
+            #print "IVAR at minimum  ", obj[indBest], " ||dIVAR/dPts|| at min is ", \
+            #            np.linalg.norm(finalGrad)
+            #print "IVAR optimizer Result ", optResults[indBest]
+            
+            return endVals
+        else:
+            
+            def func(xIn, *args):
+                in0 = np.reshape(xIn, (len(xIn)/self.nDims, self.nDims))
+                out = self.costFunction.evaluate(in0) - \
+                        10.0*np.min(np.array([self.boundsFunction(in0), 0.0]))
+                return out
+            
+            def grad(xIn, *args):
+                in0 = np.reshape(xIn, (len(xIn)/self.nDims, self.nDims))
+                grad = self.costFunction.derivative(in0)
+                return grad
 
-            pts = opt.optimize(startValues[ii].reshape((len(startValues[ii])*self.nDims)))
-            optResults[ii] = opt.last_optimize_result()
-            sol.append(pts)
-            obj[ii] = opt.last_optimum_value()
+            if len(lbounds)==0:
+                lb = -100.0*np.ones((len(startValues[0])*self.nDims))
+                ub =  100.0* np.ones((len(startValues[0])*self.nDims))
+                bounds = zip(lb,ub)
+            else:
+                bounds = zip(lbounds, rbounds)
+
+            sol = []
+            obj = np.zeros((len(startValues)))
+            for ii in xrange(len(startValues)):
+
+                pts = slsqp(func, \
+                    startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
+                    fprime=grad, bounds=bounds, acc=1e-6)
         
-        indBest = np.argmin(obj)    
-        endVals = np.reshape(sol[indBest], (len(sol[indBest])/self.nDims, self.nDims))
-        finalGrad = self.costFunction.derivative(endVals)
-        #print "IVAR at minimum  ", obj[indBest], " ||dIVAR/dPts|| at min is ", \
-        #            np.linalg.norm(finalGrad)
-        #print "IVAR optimizer Result ", optResults[indBest]
-                                
-        
-        return endVals
-    
+                sol.append(pts)
+                obj[ii] = func(pts)
+            
+            indBest = np.argmin(obj)    
+            endVals = np.reshape(sol[indBest], \
+                    (len(sol[indBest])/self.nDims, self.nDims))
+            return endVals
+
+
+            
+               
 class ExperimentalDesignNoDerivative(ExperimentalDesign):
     
     def __init__(self, costFunction, nPoints, nDims):
@@ -490,44 +531,67 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
 
                          
     def begin(self, startValues, lbounds = [], rbounds = [], ):   
-        #print "here "
-        local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues[0])*self.nDims)
-        #local_opt = nlopt.opt(nlopt.LN_NELDERMEAD, len(startValues[0])*self.nDims)
-        local_opt.set_ftol_rel(1e-12)
-        local_opt.set_xtol_rel(1e-12)
-        local_opt.set_ftol_abs(1e-12)
-        #local_opt.set_maxtime(120);
-        local_opt.set_maxtime(40)
-        local_opt.set_maxeval(200)
-        
-        if len(lbounds)==0:
-            local_opt.set_lower_bounds(-100.0*np.ones((len(startValues[0])*self.nDims)))
-            local_opt.set_upper_bounds(100.0* np.ones((len(startValues[0])*self.nDims)))
+
+        if NLOPT is True:
+            #print "here "
+            local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues[0])*self.nDims)
+            #local_opt = nlopt.opt(nlopt.LN_NELDERMEAD, len(startValues[0])*self.nDims)
+            local_opt.set_ftol_rel(1e-12)
+            local_opt.set_xtol_rel(1e-12)
+            local_opt.set_ftol_abs(1e-12)
+            #local_opt.set_maxtime(120);
+            local_opt.set_maxtime(40)
+            local_opt.set_maxeval(200)
+            
+            if len(lbounds)==0:
+                local_opt.set_lower_bounds(-100.0*np.ones((len(startValues[0])*self.nDims)))
+                local_opt.set_upper_bounds(100.0* np.ones((len(startValues[0])*self.nDims)))
+            else:
+                local_opt.set_lower_bounds(lbounds)
+                local_opt.set_upper_bounds(rbounds)
+
+            #local_opt.add_inequality_constraint(self.constraint, 0.0)
+            opt = copy.copy(local_opt)
+            opt.set_min_objective(self.objFunc)
+            sol = []
+            obj = np.zeros((len(startValues)))
+            for ii in xrange(len(startValues)):
+                #print "Start objective ", #self.objFunc(startValues[ii].reshape((len(startValues[ii])*self.nDims)))   
+                pts = startValues[ii].reshape((len(startValues[ii])*self.nDims))
+                sol.append(opt.optimize(pts))
+                obj[ii] = self.objFunc(sol[ii], np.zeros((0))) 
+            
+            indBest = np.argmin(obj)    
+            #print sol
+            endVals = np.reshape(sol[indBest], (len(sol[indBest])/self.nDims, self.nDims))
+           
+            return endVals        
         else:
-            local_opt.set_lower_bounds(lbounds)
-            local_opt.set_upper_bounds(rbounds)
+            if len(lbounds)==0:
+                lb = -100.0*np.ones((len(startValues[0])*self.nDims))
+                ub =  100.0* np.ones((len(startValues[0])*self.nDims))
+                bounds = zip(lb,ub)
+            else:
+                bounds = zip(lbounds, rbounds)
 
-        #local_opt.add_inequality_constraint(self.constraint, 0.0)
-        opt = copy.copy(local_opt)
-        opt.set_min_objective(self.objFunc)
-        sol = []
-        obj = np.zeros((len(startValues)))
-        for ii in xrange(len(startValues)):
-            #print "Start objective ", #self.objFunc(startValues[ii].reshape((len(startValues[ii])*self.nDims)))   
-            #print startValues[ii]   
-            pts = startValues[ii].reshape((len(startValues[ii])*self.nDims))
-            #print "pts ", pts
-            sol.append(opt.optimize(pts))
-            #print "End objective\n"#, self.objFunc(sol[ii], np.zeros((0)))
-            obj[ii] = self.objFunc(sol[ii], np.zeros((0))) 
-            #print "End objective ", obj[-1]
+            sol = []
+            obj = np.zeros((len(startValues)))
+            optResults = np.zeros((len(startValues)))
+            for ii in xrange(len(startValues)):
+
+                objFunc = lambda x: self.objFunc(x,np.empty(0))
+                pts = slsqp(objFunc, \
+                    startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
+                    bounds=bounds, acc=1e-6)
         
-        indBest = np.argmin(obj)    
-        #print sol
-        endVals = np.reshape(sol[indBest], (len(sol[indBest])/self.nDims, self.nDims))
-       
-        return endVals        
-
+                sol.append(pts)
+                obj[ii] = objFunc(pts)
+            
+            indBest = np.argmin(obj)    
+            endVals = np.reshape(sol[indBest], \
+                    (len(sol[indBest])/self.nDims, self.nDims))
+            return endVals
+ 
 class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
     
     def __init__(self, costFunction, nPoints, nPointsBatch, nDims, **kwargs):

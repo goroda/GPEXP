@@ -44,7 +44,10 @@ def func(x):
 
 #DEMO FUNCTION CALLED BY __main__ below
 def demo():
-
+    
+    print "\n\n******************************************************"
+    print "Starting a one dimensional demo of the GPEXP toolbox! "
+    print "******************************************************"
     dimension = 1
 
     #Setup a squared exponential covariance Kernel
@@ -56,17 +59,24 @@ def demo():
     noise = 0.0
     gpT = GP(kernel, noise)
     
+    #Update Hyperparameters
+    #Can call make the following call to get a list of hyperparameters
+
+    print "\nUsing GP Squared Exponential Kernels with initial values"
+    paramNames = gpT.getHypParamNames()
+    for p in paramNames:
+        print "\t" + p + " = {:3.5f}".format(gpT.kernel.hyperParam[p])
+    print "\n"
+
     #Generate Training Points 
     xTrain = np.array([-0.8, 0.2, 0.3, -0.1]).reshape((4,1)) #must be an $N x dim$ vector
     yTrain = func(xTrain)+np.sqrt(noise)*np.random.randn(len(xTrain)) #get noisy function values
     logLike = gpT.computeLogLike(xTrain, yTrain)
-    print "logLike of training points", logLike
+    print "Initial log likelihood of training points is {:3.5f}".format(logLike)
     
-    #Update Hyperparameters
-    #Can call make the following call to get a list of hyperparameters
-    paramNames = gpT.getHypParamNames
-    print "paramNames ", paramNames
-
+    
+    print "\n**************************************************************"
+    print "Optimizing kernel hyperparameters by maximizing marginal log-likelihood\n"
     lbCL = 1e-2
     ubCL = 1e10
     lbSigSize = 9e-1
@@ -77,11 +87,14 @@ def demo():
     
     #optParams = gpT.findOptParamsLogLike(xTrain, yTrain, guess,lb,ub)
     optParams = gpT.findOptParamsLogLike(xTrain, yTrain)
-    print "optParams are: ", optParams
-
+    print "\nNew params are: "
+    for p, val in optParams[0].items():
+        print "\t" + p + " = {:3.5f}".format(val)
+    print "With new hyperparameters log-likelihood is {:3.5f}".format(optParams[1])
     #Train New GP
     gpT.train(xTrain, yTrain)
-    print "coeff ", gpT.coeff
+    # can print out the coefficients by uncommenting below line
+    #print "coeff ", gpT.coeff
 
     #Get Points for testing
     xDemo = np.linspace(-1,1,1000).reshape((1000,1))
@@ -128,6 +141,9 @@ def demo():
     ub = np.concatenate((xTrain.flatten(), ubNewPoints))
 
     #newTrainPoints contains previous experiments and new ones
+    print "\n***************************************************************"
+    print "Beginning experimental design of new points\n "
+
     newTrainPoints = exp.beginWithVarGreedy(nodesKeep=xTrain,lbounds=lb, rbounds=ub)
 
     #Train New GP

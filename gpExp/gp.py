@@ -21,7 +21,20 @@
 
 
 import numpy as np
-import nlopt as nlopt
+
+try:
+    import nlopt as nlopt
+    NLOPT = True
+except ImportError:
+    NLOPT = False
+ 
+#NLOPT = False
+if NLOPT is False:
+    try:
+        from  scipy.optimize import fmin_slsqp as slsqp
+    except ImportError:
+        print "Warning: no optimization package found!"
+
 import multiprocessing as mp
 from gp_kernel_utilities import calculateCovarianceMatrix
 import parallel_utilities
@@ -442,7 +455,7 @@ class GP(object):
     
     def getHypParamNames(self):
         
-        return self.kernel.hyperParams.keys()
+        return self.kernel.hyperParam.keys()
 
     def updateKernelParams(self, paramsIn):
         """ 
@@ -558,22 +571,32 @@ class GP(object):
                
     def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction):
         
-         local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
+        if NLOPT is True:
+             local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
 
-         local_opt.set_xtol_rel(1e-3)
-         local_opt.set_ftol_rel(1e-3)
-         local_opt.set_ftol_abs(1e-3)
-         local_opt.set_maxtime(10);
-         local_opt.set_maxeval(40); 
-            
-         local_opt.set_lower_bounds(paramLowerBounds)
-         local_opt.set_upper_bounds(paramUpperBounds)
+             local_opt.set_xtol_rel(1e-3)
+             local_opt.set_ftol_rel(1e-3)
+             local_opt.set_ftol_abs(1e-3)
+             local_opt.set_maxtime(10);
+             local_opt.set_maxeval(40); 
+                
+             local_opt.set_lower_bounds(paramLowerBounds)
+             local_opt.set_upper_bounds(paramUpperBounds)
 
-         try:
-            local_opt.set_min_objective(costFunction)       
-            sol = local_opt.optimize(startValues)
-         except nlopt.RoundoffLimited:
-            return startValues, None
-         return sol, local_opt.last_optimum_value()
+             try:
+                local_opt.set_min_objective(costFunction)       
+                sol = local_opt.optimize(startValues)
+             except nlopt.RoundoffLimited:
+                return startValues, None
+             return sol, local_opt.last_optimum_value()
+        else:
+            maxeval = 40
+            bounds = zip(paramLowerBounds, paramUpperBounds)
+            objFunc = lambda x: costFunction(x,np.empty(0))
+            sol = slsqp(objFunc, np.array(startValues), bounds=bounds,
+                        iter=maxeval)
+
+            val = objFunc(sol)
+            return sol,val
 #===============================================================================
         
