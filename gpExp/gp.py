@@ -32,6 +32,8 @@ except ImportError:
 if NLOPT is False:
     try:
         from  scipy.optimize import fmin_slsqp as slsqp
+        from  scipy.optimize import fmin_cobyla as cobyla
+        from  scipy.optimize import fmin_l_bfgs_b as bfgs
     except ImportError:
         print "Warning: no optimization package found!"
 
@@ -590,12 +592,28 @@ class GP(object):
                 return startValues, None
              return sol, local_opt.last_optimum_value()
         else:
-            maxeval = 40
+            maxeval = 100
             bounds = zip(paramLowerBounds, paramUpperBounds)
             objFunc = lambda x: costFunction(x,np.empty(0))
-            sol = slsqp(objFunc, np.array(startValues), bounds=bounds,
-                        iter=maxeval)
+            #sol = slsqp(objFunc, np.array(startValues), bounds=bounds,
+            #            iter=maxeval)
+            
 
+            #print "startValuies ", len(startValues), len(paramLowerBounds)
+            objFunc = lambda x : costFunction(x,np.empty(0))
+            def const(x):
+                good = 1.0
+                for ii in xrange(len(x)):
+                    if (x[ii] < paramLowerBounds[ii]):
+                        return -1.0
+                    elif (x[ii] > paramUpperBounds[ii]):
+                        return -1.0
+                return good
+
+            #sol = cobyla(objFunc, np.array(startValues), cons=(const), maxfun=maxeval)
+            sol_bfgs = bfgs(objFunc, np.array(startValues), bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxeval)
+            sol = sol_bfgs[0]
+            #print "sol ", np.round(sol,4)
             val = objFunc(sol)
             return sol,val
 #===============================================================================

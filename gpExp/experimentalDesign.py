@@ -31,10 +31,11 @@ except ImportError:
 if NLOPT is False:
     try:
         from  scipy.optimize import fmin_slsqp as slsqp
+        from  scipy.optimize import fmin_cobyla as cobyla
+        from  scipy.optimize import fmin_l_bfgs_b as bfgs
+        from  scipy.optimize import minimize
     except ImportError:
         print "Warning: no optimization package found!"
-
-
 
 import scipy.optimize as optimize
 import scipy.stats as spstats
@@ -530,15 +531,15 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
         return endVals
 
                          
-    def begin(self, startValues, lbounds = [], rbounds = [], ):   
+    def begin(self, startValues, lbounds = [], rbounds = [],maxeval=10,disp=1):   
 
         if NLOPT is True:
             #print "here "
             local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues[0])*self.nDims)
             #local_opt = nlopt.opt(nlopt.LN_NELDERMEAD, len(startValues[0])*self.nDims)
-            local_opt.set_ftol_rel(1e-12)
-            local_opt.set_xtol_rel(1e-12)
-            local_opt.set_ftol_abs(1e-12)
+            local_opt.set_ftol_rel(1e-3)
+            local_opt.set_xtol_rel(1e-3)
+            local_opt.set_ftol_abs(1e-5)
             #local_opt.set_maxtime(120);
             local_opt.set_maxtime(40)
             local_opt.set_maxeval(200)
@@ -573,17 +574,40 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
                 bounds = zip(lb,ub)
             else:
                 bounds = zip(lbounds, rbounds)
+            
+            #print bounds
 
             sol = []
             obj = np.zeros((len(startValues)))
             optResults = np.zeros((len(startValues)))
-            for ii in xrange(len(startValues)):
+            def const(x):
+                good = 1.0
+                for ii in xrange(len(x)):
+                    if (x[ii] < bounds[ii][0]):
+                        return -1.0
+                    elif (x[ii] > bounds[ii][1]):
+                        return -1.0
+                return good
 
+            for ii in xrange(len(startValues)):
+                
+                #nIters = 0
                 objFunc = lambda x: self.objFunc(x,np.empty(0))
-                pts = slsqp(objFunc, \
-                    startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
-                    bounds=bounds, acc=1e-6)
+                def objFunc(x):
+                    print x.shape
+                    #nIters = nIters + 1
+                    #print nIters
+                    return self.objFunc(x, np.empty(0))
+                
+                sval = startValues[ii].reshape((len(startValues[ii])*self.nDims))
+                #pts = slsqp(objFunc, \
+                #    startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
+                #    bounds=bounds, acc=1e-3, iter=maxeval)
         
+                #sol_bfgs = bfgs(objFunc, sval, bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxeval)
+               # pts = sol_bfgs[0]
+                pts = cobyla(objFunc, sval, cons=(const), maxfun=maxeval, disp=1)
+                #pts = minimize(objFunc, np.array(startValues), method='Nelder-Mead',bounds=bounds)
                 sol.append(pts)
                 obj[ii] = objFunc(pts)
             
