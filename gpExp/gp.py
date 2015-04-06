@@ -483,7 +483,7 @@ class GP(object):
             del params['noise']
         self.kernel.updateHyperParameters(params)
 #     
-    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None):
+    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None, maxiter=40):
         """ 
         Compute the optimal hyperparameters by maximizing the marginal log likelihood
 
@@ -508,6 +508,9 @@ class GP(object):
         useNoise : None for noise learning bounds are [10^-12, 1e-2]
                  : float for common noise for each data point
                  : ndarray for separate noise for each data point
+
+        maxIter : maximum number of optimization iterations
+
         Returns
         -------
         y : 1darray
@@ -564,14 +567,14 @@ class GP(object):
             return out 
         
        
-        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc)
+        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc, maxiter=maxiter)
         bestParams = np.zeros(np.shape(paramsOut))
         
         params = dict(zip(keys,paramsOut))
         self.updateKernelParams(params)
         return params, optValue
                
-    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction):
+    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction,maxiter=40):
         
         if NLOPT is True:
              local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
@@ -611,7 +614,7 @@ class GP(object):
                 return good
 
             #sol = cobyla(objFunc, np.array(startValues), cons=(const), maxfun=maxeval)
-            sol_bfgs = bfgs(objFunc, np.array(startValues), bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxeval)
+            sol_bfgs = bfgs(objFunc, np.array(startValues), bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxiter)
             sol = sol_bfgs[0]
             #print "sol ", np.round(sol,4)
             val = objFunc(sol)
