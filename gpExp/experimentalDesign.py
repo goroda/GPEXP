@@ -27,7 +27,7 @@ try:
 except ImportError:
     NLOPT = False
  
-#NLOPT = False
+NLOPT = False
 if NLOPT is False:
     try:
         from  scipy.optimize import fmin_slsqp as slsqp
@@ -478,8 +478,6 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
             return endVals
 
 
-            
-               
 class ExperimentalDesignNoDerivative(ExperimentalDesign):
     
     def __init__(self, costFunction, nPoints, nDims):
@@ -573,7 +571,7 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
                 ub =  100.0* np.ones((len(startValues[0])*self.nDims))
                 bounds = zip(lb,ub)
             else:
-                bounds = zip(lbounds, rbounds)
+                bounds = zip(lbounds-1e-12, rbounds+1e-12)
             
             #print bounds
 
@@ -602,12 +600,12 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
                 sval = startValues[ii].reshape((len(startValues[ii])*self.nDims))
                 #pts = slsqp(objFunc, \
                 #    startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
-                #    bounds=bounds, acc=1e-3, iter=maxeval)
+                #    bounds=bounds, acc=1e-3, iter=maxiter)
         
-                #sol_bfgs = bfgs(objFunc, sval, bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxeval)
-               # pts = sol_bfgs[0]
-                pts = cobyla(objFunc, sval, cons=(const), maxfun=maxiter, disp=1)
-                #pts = minimize(objFunc, np.array(startValues), method='Nelder-Mead',bounds=bounds)
+                sol_bfgs = bfgs(objFunc, sval, bounds=bounds, approx_grad=True, factr=1e12,pgtol=1e-3,  maxfun=maxiter)
+                pts = sol_bfgs[0]
+                #pts = cobyla(objFunc, sval, cons=(const), maxfun=maxiter, disp=2)
+                #pts = minimize(objFunc, np.array(startValues), method='Nelder-Mead')#,bounds=bounds)
                 sol.append(pts)
                 obj[ii] = objFunc(pts)
             
@@ -790,7 +788,9 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
         pointsHave = len(indKeep)
 
     while pointsHave < nPoints:
- 
+        if pointsHave % 10 == 0:
+            print "Number of points we have ", pointsHave
+
         ptsChooseFrom = mcPoints.copy()
         if pointsHave == 0:
                
