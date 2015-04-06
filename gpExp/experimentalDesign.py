@@ -531,7 +531,7 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
         return endVals
 
                          
-    def begin(self, startValues, lbounds = [], rbounds = [],maxeval=10,disp=1):   
+    def begin(self, startValues, lbounds = [], rbounds = [],maxiter=10,disp=1):   
 
         if NLOPT is True:
             #print "here "
@@ -606,7 +606,7 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
         
                 #sol_bfgs = bfgs(objFunc, sval, bounds=bounds, approx_grad=True, factr=1e10, maxfun=maxeval)
                # pts = sol_bfgs[0]
-                pts = cobyla(objFunc, sval, cons=(const), maxfun=maxeval, disp=1)
+                pts = cobyla(objFunc, sval, cons=(const), maxfun=maxiter, disp=1)
                 #pts = minimize(objFunc, np.array(startValues), method='Nelder-Mead',bounds=bounds)
                 sol.append(pts)
                 obj[ii] = objFunc(pts)
@@ -626,7 +626,7 @@ class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
             self.useContinuation = kwargs['useCont']
             
     
-    def begin(self, startValues=np.array([])):
+    def begin(self, startValues=np.array([]), maxiter=40):
         nPointsAdded = len(startValues)
         if len(startValues>0):
             points = startValues.copy()
