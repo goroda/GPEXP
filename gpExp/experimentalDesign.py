@@ -27,7 +27,7 @@ try:
 except ImportError:
     NLOPT = False
  
-NLOPT = False
+#NLOPT = False
 if NLOPT is False:
     try:
         from  scipy.optimize import fmin_slsqp as slsqp
