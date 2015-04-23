@@ -108,6 +108,7 @@ class GP(object):
         compvar : int (default = 0)
             if 0 then dont compute variance
             if 1 then compute variance
+            if 2 then compute covariance
             
         Returns
         -------
@@ -132,13 +133,20 @@ class GP(object):
         
         out = np.dot(kernelvals, self.coeff) + self.gpPriorMean(newpt)
             
-        if compvar:
+        if compvar == 1:
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
             for jj in xrange(numNewPoints):
                 var[jj] = var_newpt[jj] - \
                     np.dot(kernelvals[jj,:], np.dot(self.precisionMatrix, kernelvals[jj,:].T))
             return out, np.abs(var)
+        elif compvar == 2:
+            covar_newpt = np.zeros((numNewPoints, numNewPoints))
+            for jj in xrange(numNewPoints):
+                pt = np.reshape(newpt[jj,:], (1,self.kernel.dimension))
+                covar_newpt[:,jj] = self.kernel.evaluate(newpt, pt)
+            covar = covar_newpt - np.dot(kernelvals, np.dot(self.precisionMatrix, kernelvals.T))
+            return out, covar
         else:
             return out
         
