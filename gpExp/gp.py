@@ -572,6 +572,9 @@ class GP(object):
                 margLogLike= self.loglikeParams(pts, evals, returnDeriv=0)
             
             out = -margLogLike
+            # record last point evaluation
+            objFunc.last_x_value = in0.copy() 
+            objFunc.last_f_value = out 
             return out 
         
        
@@ -591,7 +594,7 @@ class GP(object):
              local_opt.set_ftol_rel(1e-3)
              local_opt.set_ftol_abs(1e-3)
              local_opt.set_maxtime(10);
-             local_opt.set_maxeval(40); 
+             local_opt.set_maxeval(50*len(startValues)); 
                 
              local_opt.set_lower_bounds(paramLowerBounds)
              local_opt.set_upper_bounds(paramUpperBounds)
@@ -600,7 +603,7 @@ class GP(object):
                 local_opt.set_min_objective(costFunction)       
                 sol = local_opt.optimize(startValues)
              except nlopt.RoundoffLimited:
-                return startValues, None
+                return costFunction.last_x_value, costFunction.last_f_value
              return sol, local_opt.last_optimum_value()
         else:
             maxeval = 100
