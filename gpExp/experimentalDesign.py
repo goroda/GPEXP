@@ -419,6 +419,8 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
                 local_opt.set_lower_bounds(lbounds)
                 local_opt.set_upper_bounds(rbounds)
                 
+            local_opt.set_maxtime(10)
+            #local_opt.set_maxeval(10)
             #local_opt.add_inequality_constraint(self.constraint, 0.0)
             sol = []
             obj = np.zeros((len(startValues)))
