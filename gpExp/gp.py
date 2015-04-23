@@ -163,13 +163,13 @@ class GP(object):
         or if one just wants to evaluate the posterior variance later
         """
         if self.FITC == None:
-            if noiseIn == None:
+            if noiseIn is None:
                 self.covarianceMatrix = calculateCovarianceMatrix(self.kernel, nodes, self.noise)
             else:
                 self.covarianceMatrix = calculateCovarianceMatrix(self.kernel, nodes, noiseIn)
             self.precisionMatrix = np.linalg.pinv(self.covarianceMatrix)
         else:
-            if noiseIn == None:
+            if noiseIn is None:
                 
                 nNodes = len(nodes)
                 nu = int(np.floor(nNodes*self.FITC))
@@ -223,7 +223,7 @@ class GP(object):
         -----
         """
         
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
         numNewPoints = newpt.shape[0]
@@ -249,7 +249,7 @@ class GP(object):
     def evaluateVarianceDerivWRTnewpt(self, newpt):
         """ evaluate derivative of posterior variance at newpt """
 
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
         out = np.zeros((newpt.shape))
@@ -284,7 +284,7 @@ class GP(object):
         # Returns len(self.pts)*dim \times newpt array
         #NOTE there is no loop over newpt!
 
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
 
         outout = np.zeros((len(self.pts)*self.kernel.dimension,len(newpt)))
@@ -381,7 +381,7 @@ class GP(object):
 
     def loglikeParams(self, pts, evals, returnDeriv=0,noiseIn=None):
         #print "start "
-        if noiseIn == None:
+        if noiseIn is None:
             if self.FITC ==  None:
                 covMat = gp_kernel_utilities.calculateCovarianceMatrix(self.kernel, 
                         pts, self.noise)
@@ -545,7 +545,7 @@ class GP(object):
             paramUb.append(paramUpperBounds[k])
         
         #LAST KEY IS NOISE
-        if useNoise == None:
+        if useNoise is None:
             keys.append('noise')
             paramLb.append(1e-12)
             paramUb.append(1e-2)
