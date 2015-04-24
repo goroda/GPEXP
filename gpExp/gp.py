@@ -491,7 +491,7 @@ class GP(object):
             del params['noise']
         self.kernel.updateHyperParameters(params)
 #     
-    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None, maxiter=40):
+    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None, maxiter=40, useLastParams=True):
         """ 
         Compute the optimal hyperparameters by maximizing the marginal log likelihood
 
@@ -578,33 +578,36 @@ class GP(object):
             return out 
         
        
-        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc, maxiter=maxiter)
+        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc, maxiter=maxiter, useLastParams=useLastParams)
         bestParams = np.zeros(np.shape(paramsOut))
         
         params = dict(zip(keys,paramsOut))
         self.updateKernelParams(params)
         return params, optValue
                
-    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction,maxiter=40):
+    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction,maxiter=40, useLastParams=True):
         
         if NLOPT is True:
-             local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
+            local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
 
-             local_opt.set_xtol_rel(1e-3)
-             local_opt.set_ftol_rel(1e-3)
-             local_opt.set_ftol_abs(1e-3)
-             local_opt.set_maxtime(10);
-             local_opt.set_maxeval(50*len(startValues)); 
-                
-             local_opt.set_lower_bounds(paramLowerBounds)
-             local_opt.set_upper_bounds(paramUpperBounds)
+            local_opt.set_xtol_rel(1e-3)
+            local_opt.set_ftol_rel(1e-3)
+            local_opt.set_ftol_abs(1e-3)
+            local_opt.set_maxtime(10);
+            local_opt.set_maxeval(50*len(startValues)); 
+               
+            local_opt.set_lower_bounds(paramLowerBounds)
+            local_opt.set_upper_bounds(paramUpperBounds)
 
-             try:
+            try:
                 local_opt.set_min_objective(costFunction)       
                 sol = local_opt.optimize(startValues)
-             except nlopt.RoundoffLimited:
-                return costFunction.last_x_value, costFunction.last_f_value
-             return sol, local_opt.last_optimum_value()
+            except nlopt.RoundoffLimited:
+                if useLastParams:
+                    return costFunction.last_x_value, costFunction.last_f_value
+                else:
+                    return startValues, None
+            return sol, local_opt.last_optimum_value()
         else:
             maxeval = 100
             bounds = zip(paramLowerBounds, paramUpperBounds)
