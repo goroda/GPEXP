@@ -419,6 +419,8 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
                 local_opt.set_lower_bounds(lbounds)
                 local_opt.set_upper_bounds(rbounds)
                 
+            local_opt.set_maxtime(10)
+            #local_opt.set_maxeval(10)
             #local_opt.add_inequality_constraint(self.constraint, 0.0)
             sol = []
             obj = np.zeros((len(startValues)))
@@ -907,6 +909,8 @@ class costFuncEI(costFunctionBase):
         self.yTrain = yTrain
         self.gaussianProcess = copy.copy(gaussianProcess)
         self.gaussianProcess.train(xTrain, yTrain)
+        if 'fBest' in kwargs:
+            self.fBest = kwargs['fBest']
 
     def evaluate(self, trainPoints):
         """ 
@@ -927,7 +931,10 @@ class costFuncEI(costFunctionBase):
         Snoek 2014
         
         """
-        fBest = np.max(self.yTrain)
+        if hasattr(self, 'fBest'):
+            fBest = self.fBest
+        else:
+            fBest = np.max(self.yTrain)
         newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
         predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
         predstd = np.sqrt(predvar)

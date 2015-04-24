@@ -108,6 +108,7 @@ class GP(object):
         compvar : int (default = 0)
             if 0 then dont compute variance
             if 1 then compute variance
+            if 2 then compute covariance
             
         Returns
         -------
@@ -132,13 +133,20 @@ class GP(object):
         
         out = np.dot(kernelvals, self.coeff) + self.gpPriorMean(newpt)
             
-        if compvar:
+        if compvar == 1:
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
             for jj in xrange(numNewPoints):
                 var[jj] = var_newpt[jj] - \
                     np.dot(kernelvals[jj,:], np.dot(self.precisionMatrix, kernelvals[jj,:].T))
             return out, np.abs(var)
+        elif compvar == 2:
+            covar_newpt = np.zeros((numNewPoints, numNewPoints))
+            for jj in xrange(numNewPoints):
+                pt = np.reshape(newpt[jj,:], (1,self.kernel.dimension))
+                covar_newpt[:,jj] = self.kernel.evaluate(newpt, pt)
+            covar = covar_newpt - np.dot(kernelvals, np.dot(self.precisionMatrix, kernelvals.T))
+            return out, covar
         else:
             return out
         
@@ -163,13 +171,13 @@ class GP(object):
         or if one just wants to evaluate the posterior variance later
         """
         if self.FITC == None:
-            if noiseIn == None:
+            if noiseIn is None:
                 self.covarianceMatrix = calculateCovarianceMatrix(self.kernel, nodes, self.noise)
             else:
                 self.covarianceMatrix = calculateCovarianceMatrix(self.kernel, nodes, noiseIn)
             self.precisionMatrix = np.linalg.pinv(self.covarianceMatrix)
         else:
-            if noiseIn == None:
+            if noiseIn is None:
                 
                 nNodes = len(nodes)
                 nu = int(np.floor(nNodes*self.FITC))
@@ -223,7 +231,7 @@ class GP(object):
         -----
         """
         
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
         numNewPoints = newpt.shape[0]
@@ -249,7 +257,7 @@ class GP(object):
     def evaluateVarianceDerivWRTnewpt(self, newpt):
         """ evaluate derivative of posterior variance at newpt """
 
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
         out = np.zeros((newpt.shape))
@@ -284,7 +292,7 @@ class GP(object):
         # Returns len(self.pts)*dim \times newpt array
         #NOTE there is no loop over newpt!
 
-        assert self.pts != None, "must specify training points before running this" 
+        assert self.pts is not None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
 
         outout = np.zeros((len(self.pts)*self.kernel.dimension,len(newpt)))
@@ -381,7 +389,7 @@ class GP(object):
 
     def loglikeParams(self, pts, evals, returnDeriv=0,noiseIn=None):
         #print "start "
-        if noiseIn == None:
+        if noiseIn is None:
             if self.FITC ==  None:
                 covMat = gp_kernel_utilities.calculateCovarianceMatrix(self.kernel, 
                         pts, self.noise)
@@ -483,7 +491,7 @@ class GP(object):
             del params['noise']
         self.kernel.updateHyperParameters(params)
 #     
-    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None, maxiter=40):
+    def findOptParamsLogLike(self, pts, evals, paramsStart=None, paramLowerBounds=None, paramUpperBounds=None,useNoise=None, maxiter=40, useLastParams=True):
         """ 
         Compute the optimal hyperparameters by maximizing the marginal log likelihood
 
@@ -545,7 +553,7 @@ class GP(object):
             paramUb.append(paramUpperBounds[k])
         
         #LAST KEY IS NOISE
-        if useNoise == None:
+        if useNoise is None:
             keys.append('noise')
             paramLb.append(1e-12)
             paramUb.append(1e-2)
@@ -564,36 +572,42 @@ class GP(object):
                 margLogLike= self.loglikeParams(pts, evals, returnDeriv=0)
             
             out = -margLogLike
+            # record last point evaluation
+            objFunc.last_x_value = in0.copy() 
+            objFunc.last_f_value = out 
             return out 
         
        
-        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc, maxiter=maxiter)
+        paramsOut, optValue = self.chooseParams(paramLb, paramUb, paramVals, objFunc, maxiter=maxiter, useLastParams=useLastParams)
         bestParams = np.zeros(np.shape(paramsOut))
         
         params = dict(zip(keys,paramsOut))
         self.updateKernelParams(params)
         return params, optValue
                
-    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction,maxiter=40):
+    def chooseParams(self, paramLowerBounds, paramUpperBounds, startValues, costFunction,maxiter=40, useLastParams=True):
         
         if NLOPT is True:
-             local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
+            local_opt = nlopt.opt(nlopt.LN_COBYLA, len(startValues))
 
-             local_opt.set_xtol_rel(1e-3)
-             local_opt.set_ftol_rel(1e-3)
-             local_opt.set_ftol_abs(1e-3)
-             local_opt.set_maxtime(10);
-             local_opt.set_maxeval(40); 
-                
-             local_opt.set_lower_bounds(paramLowerBounds)
-             local_opt.set_upper_bounds(paramUpperBounds)
+            local_opt.set_xtol_rel(1e-3)
+            local_opt.set_ftol_rel(1e-3)
+            local_opt.set_ftol_abs(1e-3)
+            local_opt.set_maxtime(10);
+            local_opt.set_maxeval(50*len(startValues)); 
+               
+            local_opt.set_lower_bounds(paramLowerBounds)
+            local_opt.set_upper_bounds(paramUpperBounds)
 
-             try:
+            try:
                 local_opt.set_min_objective(costFunction)       
                 sol = local_opt.optimize(startValues)
-             except nlopt.RoundoffLimited:
-                return startValues, None
-             return sol, local_opt.last_optimum_value()
+            except nlopt.RoundoffLimited:
+                if useLastParams:
+                    return costFunction.last_x_value, costFunction.last_f_value
+                else:
+                    return startValues, None
+            return sol, local_opt.last_optimum_value()
         else:
             maxeval = 100
             bounds = zip(paramLowerBounds, paramUpperBounds)
