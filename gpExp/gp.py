@@ -1,4 +1,4 @@
-#Copyright (c) 2013-2015, Massachusetts Institute of Technology
+#Copyright (c) 2013-2016, Massachusetts Institute of Technology
 #
 #This file is part of GPEXP:
 #Author: Alex Gorodetsky goroda@mit.edu
@@ -222,8 +222,11 @@ class GP(object):
         Notes
         -----
         """
-        
-        assert self.pts != None, "must specify training points before running this" 
+
+        if self.pts is None:
+            print "Must specify training points before calling evaluateVariance"
+            return None
+        #assert self.pts != None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
         numNewPoints = newpt.shape[0]
@@ -284,7 +287,9 @@ class GP(object):
         # Returns len(self.pts)*dim \times newpt array
         #NOTE there is no loop over newpt!
 
-        assert self.pts != None, "must specify training points before running this" 
+        if self.pts is None:
+            print "Must specify training points before calling evaluateVarianceDerivative"
+            return None
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
 
         outout = np.zeros((len(self.pts)*self.kernel.dimension,len(newpt)))
@@ -548,7 +553,7 @@ class GP(object):
         if useNoise == None:
             keys.append('noise')
             paramLb.append(1e-12)
-            paramUb.append(1e-2)
+            paramUb.append(1e0)
             paramVals.append(1e-5) #Start noise
 
         def objFunc(in0, gradIn):

@@ -1,4 +1,4 @@
-#Copyright (c) 2013-2015, Massachusetts Institute of Technology
+#Copyright (c) 2013-2016, Massachusetts Institute of Technology
 #
 #This file is part of GPEXP:
 #Author: Alex Gorodetsky goroda@mit.edu
@@ -37,6 +37,8 @@ if NLOPT is False:
     except ImportError:
         print "Warning: no optimization package found!"
 
+from scipy.cluster.hierarchy import ward
+from scipy.cluster.hierarchy import fcluster
 import scipy.optimize as optimize
 import scipy.stats as spstats
 import sys
@@ -217,21 +219,33 @@ class costFunctionGP_IVAR(costFunctionBase):
  
 class costFunctionGP_MI(costFunctionBase):
 
-    def __init__(self, gaussianProcess, nInputs, space, square=False):
+    def __init__(self, gaussianProcess, nInputs, space, nmc=None,mcpoints=None,square=False):
         super(costFunctionGP_MI, self).__init__(nInputs, space)
         self.gaussianProcess = gaussianProcess
-        if space.dimension == 2 and square==True:
-            x = np.linspace(-1,1,10)
-            self.nMC = len(x)*len(x)
-            self.mcPoints = np.array(list(itertools.product(x,x)))
+        if nmc is not None:
+            self.nMC = nmc
+            self.mcPoints = np.copy(mcpoints)
         else:
-            self.nMC = 200
-            self.mcPoints = space.sample((self.nMC, space.dimension))
+            if space.dimension == 2 and square==True:
+                x = np.linspace(-1,1,10)
+                self.nMC = len(x)*len(x)
+                self.mcPoints = np.array(list(itertools.product(x,x)))
+            else:
+                self.nMC = 200
+                self.mcPoints = space.sample((self.nMC, space.dimension))
         
         self.gaussianProcess.addNodesAndComputeCovariance(self.mcPoints)
         self.cov = copy.copy(self.gaussianProcess.covarianceMatrix)
         self.invcov = copy.copy(self.gaussianProcess.precisionMatrix)
 
+    def add_candidates(self,nCandidates,candidates):
+        self.nMC = nCandidates
+        self.mcPoints = copy.deepcopy(candidates)
+        self.gaussianProcess.addNodesAndComputeCovariance(self.mcPoints)
+        self.cov = copy.copy(self.gaussianProcess.covarianceMatrix)
+        self.invcov = copy.copy(self.gaussianProcess.precisionMatrix)
+
+        
     def evaluate(self, index, indexAdded): 
         """
         index: int
@@ -822,6 +836,45 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
         pointsHave = pointsHave+1
  
     return mcPoints[indKeep,:]
+
+
+##########################################################
+# Cost function from Lekivetz and Jones Fast Flexible
+# Space-Filling Designs for Nonrectangular Regions
+##########################################################
+def performLJExperimentalDesign(mcPoints, nPoints):
+    """
+    Performs greedy experimental design by minimizing variance by choosing points among
+    all available MC points obtained from kernel
+ 
+    Parameters
+    ----------
+    mcPoints: ndarray
+    Monte carlo points from which to select experimental designs
+
+    nPoints : int
+    number of points to start with
+    
+ 
+    Returns
+    -------
+    endVals : ndarray
+        final point set
+ 
+    """
+
+
+    dim = mcPoints.shape[1]
+    endVals = np.zeros((nPoints,dim))
+    Z = ward(mcPoints)
+#    print Z
+    T = fcluster(Z,nPoints,criterion='maxclust')
+    for ii in xrange(nPoints):
+        ind = T==(ii+1)
+        #print  mcPoints[ind,:]
+        endVals[ii,:] = np.mean(mcPoints[ind,:],axis=0)
+
+    return endVals
 
 ##########################################################
 # Some Cost Functions for Bayesian Optimization
