@@ -360,7 +360,7 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
             gradIn[:] = gradIn[:]# + self.addGrad(in0)
 
         out = self.costFunction.evaluate(in0) - 10.0*np.min(np.array([self.boundsFunction(in0), 0.0]))
-        sys.stdout.write("\r Optimization (Cost = %s, ||g||= %s) OK " % (str(out), str(n)) )
+        sys.stdout.write("\r Optimization (Cost = %s, ||g||= %s) OK\n" % (str(out), str(n)) )
         sys.stdout.flush()
         #print "end obj exp design", out, n
         return out                       
@@ -421,9 +421,9 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
         
         if NLOPT is True:
             local_opt = nlopt.opt(nlopt.LD_SLSQP, len(startValues[0])*self.nDims)
-            local_opt.set_ftol_rel(1e-6)
-            local_opt.set_ftol_abs(1e-6)
-            local_opt.set_xtol_rel(1e-6)
+            local_opt.set_ftol_rel(1e-3)
+            local_opt.set_ftol_abs(1e-3)
+            local_opt.set_xtol_rel(1e-3)
 
             #opt = local_opt
             if len(lbounds)==0:
@@ -433,6 +433,8 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
                 local_opt.set_lower_bounds(lbounds)
                 local_opt.set_upper_bounds(rbounds)
                 
+            local_opt.set_maxtime(10)
+            #local_opt.set_maxeval(10)
             #local_opt.add_inequality_constraint(self.constraint, 0.0)
             sol = []
             obj = np.zeros((len(startValues)))
@@ -551,7 +553,9 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
             #local_opt = nlopt.opt(nlopt.LN_NELDERMEAD, len(startValues[0])*self.nDims)
             local_opt.set_ftol_rel(1e-3)
             local_opt.set_xtol_rel(1e-3)
-            local_opt.set_ftol_abs(1e-5)
+            local_opt.set_ftol_abs(1e-3)
+            #local_opt.set_ftol_abs(1e-5)
+
             #local_opt.set_maxtime(120);
             local_opt.set_maxtime(40)
             local_opt.set_maxeval(200)
@@ -960,6 +964,8 @@ class costFuncEI(costFunctionBase):
         self.yTrain = yTrain
         self.gaussianProcess = copy.copy(gaussianProcess)
         self.gaussianProcess.train(xTrain, yTrain)
+        if 'fBest' in kwargs:
+            self.fBest = kwargs['fBest']
 
     def evaluate(self, trainPoints):
         """ 
@@ -980,7 +986,10 @@ class costFuncEI(costFunctionBase):
         Snoek 2014
         
         """
-        fBest = np.max(self.yTrain)
+        if hasattr(self, 'fBest'):
+            fBest = self.fBest
+        else:
+            fBest = np.max(self.yTrain)
         newPoint = np.reshape(trainPoints[-1,:], (1,self.space.dimension))
         predMean, predvar = self.gaussianProcess.evaluate(newPoint,compvar=1)
         predstd = np.sqrt(predvar)
