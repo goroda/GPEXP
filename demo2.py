@@ -86,7 +86,7 @@ def demo():
     ub = dict({'cl0':ubCL, 'signalSize':ubSigSize}) #upperBounds for search
     
     optParams = gpT.findOptParamsLogLike(xTrain, yTrain,guess,lb,ub,useNoise=addNoise)
-    print "optParams are: ", optParams
+    print("optParams are: ", optParams)
 
     #Train New GP
     gpT.train(xTrain, yTrain,noiseIn=addNoise)
@@ -100,7 +100,6 @@ def demo():
     
     #plot
     fig = plt.figure(1)
-    plt.hold(True)
     plt.fill_between(xDemo[:,0], m-2*stddev, m+2*stddev, facecolor=[0.7,0.7,0.7])
     plt.plot(xTrain, yTrain, 'ko', ms=5, )
     plt.plot(xDemo, func(xDemo), 'k--', label='True Function')
@@ -150,7 +149,6 @@ def demo():
 
     #plot
     fig = plt.figure(2)
-    plt.hold(True)
     plt.fill_between(xDemo[:,0], m-2*stddev, m+2*stddev, facecolor=[0.7,0.7,0.7])
     plt.plot(newTrainPoints, newTrainValues, 'ko', ms=5)
     plt.plot(xDemo, func(xDemo), 'k--', label='True Function')

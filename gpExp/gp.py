@@ -35,14 +35,15 @@ if NLOPT is False:
         from  scipy.optimize import fmin_cobyla as cobyla
         from  scipy.optimize import fmin_l_bfgs_b as bfgs
     except ImportError:
-        print "Warning: no optimization package found!"
+        print("Warning: no optimization package found!")
 
 import multiprocessing as mp
-from gp_kernel_utilities import calculateCovarianceMatrix
-import parallel_utilities
-import gp_kernel_utilities
 import copy
 import itertools
+from .gp_kernel_utilities import calculateCovarianceMatrix
+from . import parallel_utilities
+from . import gp_kernel_utilities
+
 
 class GP(object):
     """ This is the GP class with prior mean is zero """
@@ -59,7 +60,7 @@ class GP(object):
         try:
             self.kernel = copy.deepcopy(kernel_in) # this is a kernel class
         except:
-            print "warning "
+            print("warning ")
             self.kernel = copy.copy(kernel_in)
 
         self.noise = noiseIn #std of noise
@@ -127,7 +128,7 @@ class GP(object):
         numTrainPoints = self.pts.shape[0]
         
         kernelvals = np.zeros((numNewPoints, numTrainPoints))
-        for jj in xrange(numTrainPoints):
+        for jj in range(numTrainPoints):
             pt = np.reshape(self.pts[jj,:], (1,self.kernel.dimension))
             kernelvals[:,jj] = self.kernel.evaluate(newpt, pt)
         
@@ -136,13 +137,13 @@ class GP(object):
         if compvar == 1:
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
-            for jj in xrange(numNewPoints):
+            for jj in range(numNewPoints):
                 var[jj] = var_newpt[jj] - \
                     np.dot(kernelvals[jj,:], np.dot(self.precisionMatrix, kernelvals[jj,:].T))
             return out, np.abs(var)
         elif compvar == 2:
             covar_newpt = np.zeros((numNewPoints, numNewPoints))
-            for jj in xrange(numNewPoints):
+            for jj in range(numNewPoints):
                 pt = np.reshape(newpt[jj,:], (1,self.kernel.dimension))
                 covar_newpt[:,jj] = self.kernel.evaluate(newpt, pt)
             covar = covar_newpt - np.dot(kernelvals, np.dot(self.precisionMatrix, kernelvals.T))
@@ -190,7 +191,7 @@ class GP(object):
                 Quu = calculateCovarianceMatrix(self.kernel, snodes, self.noise)
                 invQuu = np.linalg.pinv(Quu)
                 kernelvals = np.zeros((nu, nNodes))
-                for jj in xrange(nu):
+                for jj in range(nu):
                     pt = np.reshape(snodes[jj], (1,self.kernel.dimension))
                     kernelvals[jj,:] = self.kernel.evaluate(pt, nodes)
                 Q = np.dot(kernelvals.T, np.dot(invQuu, kernelvals))
@@ -204,7 +205,7 @@ class GP(object):
                                                 np.dot(invG, kernelvals.T))), np.dot(
                                                 kernelvals, invG))))
             else:
-                print "NOT IMPLEMENTED YET"
+                print("NOT IMPLEMENTED YET")
         self.pts = nodes.copy()
           
     def evaluateVariance(self, newpt, parallel=1):
@@ -231,7 +232,7 @@ class GP(object):
         -----
         """
 
-        assert self.pts is not None:
+        assert self.pts is not None
         #assert self.pts != None, "must specify training points before running this" 
         assert newpt.shape[1] == self.kernel.dimension, "evaluation points for GP is incorrect shape"
         
@@ -241,13 +242,13 @@ class GP(object):
         nThreshForParallel = 500001 # at this level both parallel and serial seem to perform similarly
         if numNewPoints < nThreshForParallel or parallel==0:
             kernelvals = np.zeros((numNewPoints, numTrainPoints))
-            for jj in xrange(numTrainPoints):
+            for jj in range(numTrainPoints):
                 pt = np.reshape(self.pts[jj,:], (1,self.kernel.dimension))
                 kernelvals[:,jj] = self.kernel.evaluate(newpt, pt)
                    
             var_newpt = self.kernel.evaluate(newpt, newpt)
             var = np.zeros((numNewPoints))
-            for jj in xrange(numNewPoints):
+            for jj in range(numNewPoints):
                 var[jj] = var_newpt[jj] - \
                     np.dot(kernelvals[jj,:], np.dot(self.precisionMatrix, kernelvals[jj,:].T))
             return var
@@ -302,7 +303,7 @@ class GP(object):
         
         #preprocessing
         derivTotal = []
-        for zz in xrange(len(self.pts)):
+        for zz in range(len(self.pts)):
             
             p = self.pts[zz,:].reshape((1,self.kernel.dimension))
             indUse = np.array([np.linalg.norm(pp - p) < 1e-10 for pp in self.pts])
@@ -322,8 +323,8 @@ class GP(object):
         #form together the derivative
         out2 = np.zeros((len(self.pts)*self.kernel.dimension,len(newpt)))
         out1 = np.zeros((len(self.pts)*self.kernel.dimension,len(newpt)))
-        for jj in xrange(len(self.pts)):
-            for kk in xrange(self.kernel.dimension):
+        for jj in range(len(self.pts)):
+            for kk in range(self.kernel.dimension):
                 #temp = np.zeros((len(self.pts), len(newpt)))
                 #temp[jj,:] = derivTotal[jj][:.kk]
                 out1[jj*self.kernel.dimension+kk,:] =2.0*evalsDotPrec[:,jj]*derivTotal[jj][:,kk]
@@ -408,7 +409,7 @@ class GP(object):
                 Quu = calculateCovarianceMatrix(self.kernel, snodes, self.noise)
                 invQuu = np.linalg.pinv(Quu)
                 kernelvals = np.zeros((nu, nNodes))
-                for jj in xrange(nu):
+                for jj in range(nu):
                     pt = np.reshape(snodes[jj], (1,self.kernel.dimension))
                     kernelvals[jj,:] = self.kernel.evaluate(pt, nodes)
                 Q = np.dot(kernelvals.T, np.dot(invQuu, kernelvals))
@@ -436,7 +437,7 @@ class GP(object):
         thirdTerm = -len(evals)/2.0 * np.log(2.0*np.pi) 
         out = firstTerm + secondTerm + thirdTerm
         
-        keys = self.kernel.hyperParam.keys() + ['noise']
+        keys = list(self.kernel.hyperParam.keys()) + ['noise']
         #Compute Derivative
         if returnDeriv == 1:
             derivMat = np.zeros((len(pts), len(pts), len(keys)))
@@ -455,7 +456,7 @@ class GP(object):
 
             term1 = np.outer(precEval, precEval)- invMat
             outD = dict({})
-            for ii in xrange(len(keys)):
+            for ii in range(len(keys)):
                 outD[keys[ii]] =  0.5 * np.trace(np.dot( term1, derivMat[:,:,ii])) 
                 if keys[ii] == 'noise':
                     outD[keys[ii]] *= self.noise*2.0
@@ -536,18 +537,18 @@ class GP(object):
 
         if paramLowerBounds is None:
             paramLowerBounds = dict({})
-            for k,v in paramsStart.iteritems():
+            for k,v in paramsStart.items():
                 paramLowerBounds[k] = np.max([v/10.0,1e-3])
         if paramUpperBounds is None:
             paramUpperBounds = dict({})
-            for k,v in paramsStart.iteritems():
+            for k,v in paramsStart.items():
                 paramUpperBounds[k] = np.min([v*10.0,10.0])
 
         keys = []
         paramVals = []
         paramLb = []
         paramUb = []
-        for k, v in paramsStart.iteritems():
+        for k, v in paramsStart.items():
             keys.append(k)
             paramVals.append(v)
             paramLb.append(paramLowerBounds[k])
@@ -565,7 +566,7 @@ class GP(object):
             if gradIn.size > 0:
                 margLogLike, derivs= self.loglikeParams(pts, evals, returnDeriv=1)
                 outD = np.zeros((len(keys)))
-                for ii in xrange(len(keys)):
+                for ii in range(len(keys)):
                     outD[ii] = derivs[keys[ii]]
                 gradIn[:] = -outD
                 
@@ -611,7 +612,7 @@ class GP(object):
             return sol, local_opt.last_optimum_value()
         else:
             maxeval = 100
-            bounds = zip(paramLowerBounds, paramUpperBounds)
+            bounds = list(zip(paramLowerBounds, paramUpperBounds))
             objFunc = lambda x: costFunction(x,np.empty(0))
             #sol = slsqp(objFunc, np.array(startValues), bounds=bounds,
             #            iter=maxeval)
@@ -621,7 +622,7 @@ class GP(object):
             objFunc = lambda x : costFunction(x,np.empty(0))
             def const(x):
                 good = 1.0
-                for ii in xrange(len(x)):
+                for ii in range(len(x)):
                     if (x[ii] < paramLowerBounds[ii]):
                         return -1.0
                     elif (x[ii] > paramUpperBounds[ii]):

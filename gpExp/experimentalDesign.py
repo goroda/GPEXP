@@ -35,17 +35,19 @@ if NLOPT is False:
         from  scipy.optimize import fmin_l_bfgs_b as bfgs
         from  scipy.optimize import minimize
     except ImportError:
-        print "Warning: no optimization package found!"
+        print("Warning: no optimization package found!")
 
 from scipy.cluster.hierarchy import ward
 from scipy.cluster.hierarchy import fcluster
 import scipy.optimize as optimize
 import scipy.stats as spstats
 import sys
-import parallel_utilities
-import gp_kernel_utilities
 import copy
 import itertools
+
+from . import parallel_utilities
+from . import gp_kernel_utilities
+
 
 class costFunctionBase(object):
     
@@ -72,7 +74,7 @@ class costFunctionGP_IVAR(costFunctionBase):
             #self.mcPointWeights = space.probDensity(self.mcPoints)
         else:
             if space.noiseFunc is not None:
-                raise TypeError, "cost function with basis functions not implemented when a variable noise function is specified"
+                raise TypeError("cost function with basis functions not implemented when a variable noise function is specified")
     def evaluate(self, inputPoints):
         """ 
         Cost function for experimental design - minimizes integrated variance
@@ -134,7 +136,7 @@ class costFunctionGP_IVAR(costFunctionBase):
             out = parallel_utilities.parallelizeMcForLoop(forloop, None, p)   
             cost = np.sum(out)
             #cost = 0.0 
-            #for jj in xrange(lenEigs):
+            #for jj in range(lenEigs):
             #    evals = self.gaussianProcess.kernel.evaluateKernelBasis(jj,inputPoints)
             #    cost = cost + self.gaussianProcess.kernel.eigenvalues[jj]*(1.0 - \
             #            self.gaussianProcess.kernel.eigenvalues[jj]*  \
@@ -184,7 +186,7 @@ class costFunctionGP_IVAR(costFunctionBase):
             #compute dphi_ii(x_i)
             derivPhiMatrix = np.zeros((nPoints, lenEigs ))
             phiMatrix = np.zeros((nPoints, lenEigs))
-            for ii in xrange(lenEigs):
+            for ii in range(lenEigs):
     #            print "shape of interest ", np.shape(self.kernel.evaluateKernelBasisDeriv(ii, inputPoints))
                 derivPhiMatrix[:,ii] = \
                     np.reshape(self.gaussianProcess.kernel.evaluateKernelBasisDeriv(ii, inputPoints), (nPoints))
@@ -203,10 +205,10 @@ class costFunctionGP_IVAR(costFunctionBase):
                     c = np.zeros((nPoints))
                     c[itera] = 1.0
                     Amat = np.zeros((nPoints,nPoints))
-                    for kk in xrange(lenEigs):
+                    for kk in range(lenEigs):
                         cphi = np.outer(c, phiMatrix[:,kk].T)
                         Amat = Amat + self.gaussianProcess.kernel.eigenvalues[kk] * derivPhiMatrix[itera, kk]*(cphi + cphi.T)
-                    for jj in xrange(lenEigs):
+                    for jj in range(lenEigs):
                         out[overallIter] = out[overallIter] +  -self.gaussianProcess.kernel.eigenvalues[jj]**2.0 * ( np.dot(-dMat[:,jj].T, np.dot(Amat, dMat[:,jj]) ) + 2.0 * derivPhiMatrix[itera,jj] * dMat[itera,jj])   
                     overallIter = overallIter+1
                 #print "out ", out
@@ -440,7 +442,7 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
             obj = np.zeros((len(startValues)))
             optResults = np.zeros((len(startValues)))
             #print "begin optimization of designs"
-            for ii in xrange(len(startValues)):
+            for ii in range(len(startValues)):
                 opt = copy.copy(local_opt)
                 opt.set_min_objective(self.objFunc)
 
@@ -460,37 +462,37 @@ class ExperimentalDesignDerivative(ExperimentalDesign):
         else:
             
             def func(xIn, *args):
-                in0 = np.reshape(xIn, (len(xIn)/self.nDims, self.nDims))
+                in0 = np.reshape(xIn, (int(len(xIn)/self.nDims), self.nDims))
                 out = self.costFunction.evaluate(in0) - \
                         10.0*np.min(np.array([self.boundsFunction(in0), 0.0]))
                 return out
             
             def grad(xIn, *args):
-                in0 = np.reshape(xIn, (len(xIn)/self.nDims, self.nDims))
+                in0 = np.reshape(xIn, (int(len(xIn)/self.nDims), self.nDims))
                 grad = self.costFunction.derivative(in0)
                 return grad
 
             if len(lbounds)==0:
                 lb = -100.0*np.ones((len(startValues[0])*self.nDims))
                 ub =  100.0* np.ones((len(startValues[0])*self.nDims))
-                bounds = zip(lb,ub)
+                bounds = list(zip(lb,ub))
             else:
-                bounds = zip(lbounds, rbounds)
+                bounds = list(zip(lbounds, rbounds))
 
             sol = []
             obj = np.zeros((len(startValues)))
-            for ii in xrange(len(startValues)):
+            for ii in range(len(startValues)):
 
                 pts = slsqp(func, \
                     startValues[ii].reshape((len(startValues[ii])*self.nDims)), \
-                    fprime=grad, bounds=bounds, acc=1e-6)
+                            fprime=grad, bounds=bounds, acc=1e-6)
         
                 sol.append(pts)
                 obj[ii] = func(pts)
             
             indBest = np.argmin(obj)    
             endVals = np.reshape(sol[indBest], \
-                    (len(sol[indBest])/self.nDims, self.nDims))
+                    (int(len(sol[indBest])/self.nDims), self.nDims))
             return endVals
 
 
@@ -506,7 +508,7 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
         if gradIn.size > 0:
             assert 1==0, "Trying to evaluate derivatives in the NoDerivative Exp design"
             gradIn[:] = []
-            print "norm of grad ", np.linalg.norm(gradIn)
+            print("norm of grad ", np.linalg.norm(gradIn))
         
         out = self.costFunction.evaluate(in0) - 10.0*np.min(np.array([self.boundsFunction(in0), 0.0]))
         #print "evaluated", out
@@ -535,13 +537,13 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
             mcPoints = self.costFunction.mcPoints[:]
             indKeep = []
         
-        print "startGreedy"
+        print("startGreedy")
         startVals = performGreedyVarExperimentalDesign(kTemp, mcPoints, 
                         self.nPoints, self.nDims, indKeepStart=indKeep)
         
-        print "cost Of Start ", self.costFunction.evaluate(startVals)
+        print("cost Of Start ", self.costFunction.evaluate(startVals))
         endVals = self.begin([startVals], lbounds, rbounds)
-        print "cost Of end", self.costFunction.evaluate(endVals)
+        print("cost Of end", self.costFunction.evaluate(endVals))
         return endVals
 
                          
@@ -572,7 +574,7 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
             opt.set_min_objective(self.objFunc)
             sol = []
             obj = np.zeros((len(startValues)))
-            for ii in xrange(len(startValues)):
+            for ii in range(len(startValues)):
                 #print "Start objective ", #self.objFunc(startValues[ii].reshape((len(startValues[ii])*self.nDims)))   
                 pts = startValues[ii].reshape((len(startValues[ii])*self.nDims))
                 sol.append(opt.optimize(pts))
@@ -587,9 +589,9 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
             if len(lbounds)==0:
                 lb = -100.0*np.ones((len(startValues[0])*self.nDims))
                 ub =  100.0* np.ones((len(startValues[0])*self.nDims))
-                bounds = zip(lb,ub)
+                bounds = list(zip(lb,ub))
             else:
-                bounds = zip(lbounds-1e-12, rbounds+1e-12)
+                bounds = list(zip(lbounds-1e-12, rbounds+1e-12))
             
             #print bounds
 
@@ -598,19 +600,19 @@ class ExperimentalDesignNoDerivative(ExperimentalDesign):
             optResults = np.zeros((len(startValues)))
             def const(x):
                 good = 1.0
-                for ii in xrange(len(x)):
+                for ii in range(len(x)):
                     if (x[ii] < bounds[ii][0]):
                         return -1.0
                     elif (x[ii] > bounds[ii][1]):
                         return -1.0
                 return good
 
-            for ii in xrange(len(startValues)):
+            for ii in range(len(startValues)):
                 
                 #nIters = 0
                 objFunc = lambda x: self.objFunc(x,np.empty(0))
                 def objFunc(x):
-                    print x.shape
+                    print(x.shape)
                     #nIters = nIters + 1
                     #print nIters
                     return self.objFunc(x, np.empty(0))
@@ -653,7 +655,7 @@ class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
         tol = 1e-16
         err = 10000
         while (nPointsAdded < self.nPoints) and (err > tol):
-            print "Number of points so far ", nPointsAdded
+            print("Number of points so far ", nPointsAdded)
             nPointsAdded = nPointsAdded + self.nPointsBatch
             lbounds = -1.0*np.ones((nPointsAdded*self.nDims))
             rbounds = 1.0*np.ones((nPointsAdded*self.nDims))
@@ -663,7 +665,7 @@ class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
             rbounds[0:nPointsPrev*self.nDims] = points.reshape((nPointsPrev*self.nDims))
             #check several starting points
             startVals = []
-            for ii in xrange(1):
+            for ii in range(1):
                 startVals.append(np.concatenate((points, 
                          self.costFunction.space.sample((self.nPointsBatch,self.nDims))),
                                                 axis=0))
@@ -681,7 +683,7 @@ class ExperimentalDesignGreedyWithNoDerivatives(ExperimentalDesignNoDerivative):
             else:
                 points = expCurr.begin(startVals, lbounds, rbounds)
             err = currCost.evaluate(points)
-            print "Current Error ", err
+            print("Current Error ", err)
         
         if self.useContinuation != 0:
             return points, overallPointsTrace
@@ -711,7 +713,7 @@ class ExperimentalDesignGreedyWithDerivatives(ExperimentalDesignDerivative):
         tol = 1e-16
         err = 10000
         while (nPointsAdded < self.nPoints) and (err > tol):
-            print "Number of points so far ", nPointsAdded
+            print("Number of points so far ", nPointsAdded)
             nPointsAdded = nPointsAdded + self.nPointsBatch
             lbounds = -100.0*np.ones((nPointsAdded*self.nDims))
             rbounds = 100.0*np.ones((nPointsAdded*self.nDims))
@@ -721,7 +723,7 @@ class ExperimentalDesignGreedyWithDerivatives(ExperimentalDesignDerivative):
             rbounds[0:nPointsPrev*self.nDims] = points.reshape((nPointsPrev*self.nDims))
             #check several starting points
             startVals = []
-            for ii in xrange(2):
+            for ii in range(2):
                 startVals.append(np.concatenate((points, 
                          self.costFunction.space.sample((self.nPointsBatch,self.nDims))),
                                                 axis=0))
@@ -740,7 +742,7 @@ class ExperimentalDesignGreedyWithDerivatives(ExperimentalDesignDerivative):
             else:
                 points = expCurr.beginWithVarGreedy(nodesKeep=points, lbounds=lbounds, rbounds=rbounds)
             err = currCost.evaluate(points)
-            print "Current Error ", err
+            print("Current Error ", err)
         
         if self.useContinuation != 0:
             return points, overallPointsTrace
@@ -767,7 +769,7 @@ def performGreedyMIExperimentalDesign(costFuncMI, nPoints, start=0):
      
     indKeep = [start]
     indexOptions = np.setdiff1d(np.arange(costFuncMI.nMC), indKeep)
-    for ii in xrange(len(indKeep),nPoints):
+    for ii in range(len(indKeep),nPoints):
         
         out = np.zeros((len(indexOptions)))
         for jj, ind in enumerate(indexOptions):
@@ -807,7 +809,7 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
 
     while pointsHave < nPoints:
         if pointsHave % 10 == 0:
-            print "Number of points we have ", pointsHave
+            print("Number of points we have ", pointsHave)
 
         ptsChooseFrom = mcPoints.copy()
         if pointsHave == 0:
@@ -823,12 +825,12 @@ def performGreedyVarExperimentalDesign(kernel, mcPoints, nPoints, dimension, wei
             invMat = np.linalg.pinv(covMat)
             kernVals = np.zeros((pointsHave, len(ptsChooseFrom)))
                
-            for ii in xrange(pointsHave):
+            for ii in range(pointsHave):
                 pt = mcPoints[indKeep[ii],:].reshape((1,dimension))
                 kernVals[ii,:] = kernel.evaluate(ptsChooseFrom, pt)
                
             k = np.zeros((len(ptsChooseFrom)))
-            for ii in xrange(len(ptsChooseFrom)):
+            for ii in range(len(ptsChooseFrom)):
                 pt = ptsChooseFrom[ii].reshape((1,dimension))
                 k[ii] = kernel.evaluate(pt, pt) - \
                         np.dot(kernVals[:,ii].T, np.dot(invMat, kernVals[:,ii]))
@@ -873,7 +875,7 @@ def performLJExperimentalDesign(mcPoints, nPoints):
     Z = ward(mcPoints)
 #    print Z
     T = fcluster(Z,nPoints,criterion='maxclust')
-    for ii in xrange(nPoints):
+    for ii in range(nPoints):
         ind = T==(ii+1)
         #print  mcPoints[ind,:]
         endVals[ii,:] = np.mean(mcPoints[ind,:],axis=0)

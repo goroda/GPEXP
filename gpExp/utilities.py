@@ -27,7 +27,7 @@ def sampleLHS(numPts):
     #1D
     segSize = 1.0/float(numPts)
     pointVal = np.zeros(numPts)
-    for ii in xrange(numPts):
+    for ii in range(numPts):
         segMin = float(ii) * segSize
         point = segMin + (np.random.random() * segSize)
         pointVal[ii] = point #(point #* (1 - -1)) + -1 
@@ -40,7 +40,7 @@ def genSample2DCircle(size, radius):
     numPoints = size[0]
     numDims = size[1]
     samples = np.zeros(size)
-    for ii in xrange(numPoints):
+    for ii in range(numPoints):
         notValid = 1
         while notValid:
             s = np.random.uniform(-1, 1, numDims)
@@ -56,7 +56,7 @@ def genSampleNDCircle(size, radius):
     numPoints = size[0]
     numDims = size[1]
     samples = np.zeros(size)
-    for ii in xrange(numPoints):
+    for ii in range(numPoints):
         notValid = 1
         while notValid:
             s = np.random.uniform(-1,1,numDims)
@@ -197,9 +197,9 @@ def distribFuncMickey(samplesInAAA):
     
     
     indGood = []
-    for ii in xrange(len(samplesInAAA)):
+    for ii in range(len(samplesInAAA)):
         #bad sample
-        for jj in xrange(len(samplesOk)):
+        for jj in range(len(samplesOk)):
             if np.linalg.norm(samplesInAAA[ii,:]-samplesOk[jj,:]) < 1e-15:
                 indGood.append(ii)
                 break
@@ -214,7 +214,7 @@ def genSampleTriangle(size):
     numPoints = size[0]
     numDims = size[1]
     samples = np.zeros(size)
-    for ii in xrange(numPoints):
+    for ii in range(numPoints):
         notValid = 1
         while notValid:
             s = np.random.uniform(-1, 1, numDims)
@@ -233,7 +233,7 @@ def genSampleDonut(size, radius):
     numDims = size[1]
     samples = np.zeros(size)
     radius = 0.7;
-    for ii in xrange(numPoints):
+    for ii in range(numPoints):
         notValid = 1
         while notValid:
             s = np.random.uniform(-1, 1, numDims)

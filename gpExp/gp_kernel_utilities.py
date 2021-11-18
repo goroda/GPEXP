@@ -24,7 +24,7 @@ import numpy as np
 from scipy.sparse.linalg import LinearOperator
 #import scipy.sparse.linalg.eigen.arpack as sparpack
 import scipy.sparse.linalg.eigen as sparpack
-import parallel_utilities
+from . import parallel_utilities
 """
 #################################
 # Utilities
@@ -52,7 +52,7 @@ def calculateCovarianceMatrix(kernel, points, nugget=0.0):
         """
         size_of_mat, dim = points.shape
         covarianceMatrix = np.zeros((size_of_mat,size_of_mat))
-        for jj in xrange(size_of_mat):
+        for jj in range(size_of_mat):
             point = np.reshape(points[jj,:] , (1, dim) )
             covarianceMatrix[jj,:] = \
                 kernel.evaluate(points, point)
@@ -80,7 +80,7 @@ def calculateCovarianceMatrixFITC(kernel, nodes, nugget, fitc, returnCov=False):
     Quu = calculateCovarianceMatrix(kernel, snodes, nugget)
     invQuu = np.linalg.pinv(Quu)
     kernelvals = np.zeros((nu, nNodes))
-    for jj in xrange(nu):
+    for jj in range(nu):
         pt = np.reshape(snodes[jj], (1,kernel.dimension))
         kernelvals[jj,:] = kernel.evaluate(pt, nodes)
     Q = np.dot(kernelvals.T, np.dot(invQuu, kernelvals))
@@ -122,7 +122,7 @@ def covTimesV(b, kernel, mcPoints):
     -----
     Used for linear operator in eigenvalue solver
     """
-    print "Calculate "
+    print("Calculate ")
     #counter = counter+1
     out = np.zeros((b.shape))
     
@@ -222,7 +222,7 @@ def efunc(x, ptsin, eigve, kern):
     nPtsL = np.shape(x)[0]
     dim = np.shape(ptsin)[1]
     outh = np.zeros((nPtsL))
-    for qq in xrange(nPtsL):
+    for qq in range(nPtsL):
 
         evals = kern.evaluateKernel(ptsin, np.reshape(x[qq,:], 
                                 (1, dim)))
