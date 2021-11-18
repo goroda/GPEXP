@@ -30,7 +30,7 @@ Gorodetsky, Alex, and Youssef Marzouk. "Mercer kernels and integrated variance e
 The current software contains the following options for kernels and experimental design cost functions (though adding new kernels and cost functions is fairly trivial).
 
 ## (Multidimensional) Kernels
----------------------------
+
   * Squared exponential
     * isotropic 
     * automatic relevance determination 
@@ -38,7 +38,7 @@ The current software contains the following options for kernels and experimental
   * Mehler Kernel
 
 ## Experimental Design Cost Functions
-----------------------------------
+
   * Integrated Variance
   * Conditional Entropy
   * Mutual Information
