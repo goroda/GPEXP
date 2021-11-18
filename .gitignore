@@ -4,3 +4,5 @@
 update_file_headers.py
 fileheaders.txt
 .DS_Store
+header.txt
+replace_headers.py

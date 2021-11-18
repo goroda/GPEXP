@@ -1,7 +1,8 @@
-#Copyright (c) 2013-2015, Massachusetts Institute of Technology
+#Copyright (c) 2013-2016, Massachusetts Institute of Technology
+#Copyright (c) 2016-2022, Alex Gorodetsky
 #
 #This file is part of GPEXP:
-#Author: Alex Gorodetsky goroda@mit.edu
+#Author: Alex Gorodetsky alex@alexgorodetsky
 #
 #GPEXP is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
