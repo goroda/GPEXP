@@ -1,4 +1,4 @@
-"""Kernels"""
+"""Kernels."""
 
 # Code
 
@@ -25,103 +25,137 @@
 
 import numpy as np
 import math
+import abc
 
 
-class Kernel(object):
-    """This is a Kernel Class."""
+class Kernel(abc.ABC):
+    """This is a Kernel Class.
 
-    nugget = 0.0
-    hyperParam = dict({})
+    This is an abstract base class from which specific 
+    kernels need to inherit and implement the `evaluateF` function
+    """
 
     def __init__(self, hyperParam, dimension, *argc):
-        """ Initializes Kernel class """
+        """Initialize Kernel class."""
+        self.nugget = 0.0
+        self.hyperParam = dict({})
 
         self.dimension = dimension
         self.hyperParam = hyperParam
-        super(Kernel,self).__init__()
-    
+
     def updateHyperParameters(self, hyperParamNew):
-        
-        for key in hyperParamNew.keys():
-            assert key in self.hyperParam.keys(), (key, " is not a valid hyperParameter")
-        self.hyperParam = hyperParamNew
+        """Update hyperparameters of hyperparameters.
+
+        Parameters
+        ----------
+        hyperParamNew : dict
+                  A dictionary with a subset of existing hyperparameters
+        """
+        for key in hyperParamNew:
+            assert key in self.hyperParam.keys(), \
+                (key, " is not a valid hyperParameter")
+            self.hyperParam[key] = hyperParamNew
 
     def evaluate(self, x1, x2):
-          
-        assert len(x2.shape) > 1 and len(x1.shape) > 1, "Must supply nd arrays to evaluation function"
-        
+        """Evaluate the kernel."""
+        assert len(x2.shape) > 1 and len(x1.shape) > 1, \
+            "Must supply nd arrays to evaluation function"
+
         nPointsx1 = x1.shape[0]
         nPointsx2 = x2.shape[0]
-        assert x1.shape[1] == self.dimension and x2.shape[1] == self.dimension, \
-               ( " Incorrect dimension of input points fed to kernel ", x1.shape, x2.shape)
-                
+        assert x1.shape[1] == self.dimension and \
+            x2.shape[1] == self.dimension, \
+            f" Incorrect dimension of input: {x1.shape, x2.shape}"
+
         if nPointsx1 > nPointsx2:
             out = self.evaluateF(x1, np.tile(x2, (nPointsx1, 1)))
         elif nPointsx1 < nPointsx2:
             out = self.evaluateF(np.tile(x1, (nPointsx2, 1)), x2)
         else:
-            out = self.evaluateF(x1,x2)
-        
-        return out
-    
-    def evaluateF(self, x1, x2):
-        """ Default kernel is constant 0 """
+            out = self.evaluateF(x1, x2)
 
-        return 0
- 
-class KernelIsoMatern(Kernel):
-    """ Matern Kernel """
-    def __init__(self, rho, signalSize, dimension, nu=3.0/2.0):
-       
-        #note nu is not treated as hyperparamter
-        hyperParam = dict({'rho':rho, 'signalSize':signalSize})
-        self.nu = nu
-        super(KernelIsoMatern, self).__init__(hyperParam, dimension)
-         
+        return out
+
+    @abc.abstractmethod
     def evaluateF(self, x1, x2):
-        """ Private evaluate method in which x1 and x2 are the same shape """
-        assert x1.shape == x2.shape, "__evaluate() received non-equal shaped point sets"
+        """Evaluate the kernel.
+
+        Parameters
+        ----------
+        x1 : ndarray (n, d)
+        x2 : ndarray (n, d)
+        """
+        pass
+
+    @abc.abstractmethod
+    def derivativeWrtHypParams(self, x1, x2):
+        """Compute derivative with respect to hyperparmaeters."""
+        pass
+
+
+class KernelIsoMatern(Kernel):
+    """Isotropic Matern Kernel."""
+
+    def __init__(self, rho, signalSize, dimension, nu=3.0/2.0):
+        """Initialize the isotropic matern kernel."""
+        # nu is not treated as hyperparamter
+        hyperParam = dict({'rho': rho, 'signalSize': signalSize})
+        self.nu = nu
+        super().__init__(hyperParam, dimension)
+
+    def evaluateF(self, x1, x2):
+        """Private evaluate method in which x1 and x2 are the same shape."""
+        assert x1.shape == x2.shape, \
+            "__evaluate() received non-equal shaped point sets"
 
         if np.abs(1.5-self.nu) < 1e-10:
-            #d = np.linalg.norm(x1-x2)#np.sqrt(np.sum((x1-x2)**2.0,axis=1))
-            d = np.sqrt(np.sum((x1-x2)**2.0,axis=1))
-            term = np.sqrt(3)*d/self.hyperParam['rho']
-            out = self.hyperParam['signalSize']* (1.0+term)* np.exp (-term)
-        #super(KernelIsoMatern, self).evaluateF(x1,x2)
+            d = np.sqrt(np.sum((x1-x2)**2.0, axis=1))
+            term = np.sqrt(3.0)*d/self.hyperParam['rho']
+            out = self.hyperParam['signalSize'] * (1.0+term) * np.exp(-term)
         return out
-    
-    def derivativeWrtHypParams(self, x1, x2):
-        #Assume that derivative is taken at current hyperparameters
 
-        assert x1.shape == x2.shape, "__evaluate() received non-equal shaped point sets"
-        raise AttributeError("derivativeWrtHypParams not implemented for KernelIsoMatern")
+    def derivativeWrtHypParams(self, x1, x2):
+        """Compute Derivative with respect to hyperparameters."""
+        assert x1.shape == x2.shape, \
+            "__evaluate() received non-equal shaped point sets"
+        raise AttributeError(
+            "derivativeWrtHypParams not implemented for KernelIsoMatern")
 
 
 class KernelSquaredExponential(Kernel):
-    """  exp(- (x-x')^2/(2*l^2) """
+    """Squared Exponential Kernel exp(- (x-x')^2/(2*l^2).
+
+    This is non-isotropic kernel with a different correlation parameter
+    for each dimension
+    """
 
     def __init__(self,  correlationLength, signalSize, dimension):
-       
+        """Initialize squared exponential kernel."""
         hyperParam = dict({})
         if len(correlationLength) == 1:
-            correlationLength = np.tile( correlationLength, (dimension))     
+            correlationLength = np.tile(correlationLength, (dimension))
         for ii in range(len(correlationLength)):
             hyperParam['cl'+str(ii)] = correlationLength[ii]
 
-        hyperParam['signalSize'] = signalSize 
-        super(KernelSquaredExponential, self).__init__(hyperParam, dimension)
-         
+        hyperParam['signalSize'] = signalSize
+        super().__init__(hyperParam, dimension)
+
     def evaluateF(self, x1, x2):
-        """ Private evaluate method in which x1 and x2 are the same shape """
-        assert x1.shape == x2.shape, "__evaluate() received non-equal shaped point sets"
+        """Evaluate."""
+        assert x1.shape == x2.shape, \
+            "__evaluate() received non-equal shaped point sets"
+
         cl = np.zeros((self.dimension))
         for ii in range(self.dimension):
             cl[ii] = self.hyperParam['cl'+str(ii)]
 
-        out = self.hyperParam['signalSize']* \
-            np.exp (-0.5 * np.sum((x1-x2)**2.0*np.tile(cl**-2.0, (x1.shape[0],1)),axis=1) )
+        out = self.hyperParam['signalSize'] * \
+            np.exp(-0.5 * np.sum((x1-x2)**2.0 *
+                                 np.tile(cl**-2.0,
+                                         (x1.shape[0], 1)),
+                                 axis=1))
         return out
-    
+
     def derivativeWrtHypParams(self, x1, x2):
         #Assume that derivative is taken at current hyperparameters
 

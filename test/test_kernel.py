@@ -22,3 +22,11 @@
 # along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
 # Code
+
+import unittest
+
+import ..gpExp.kernels as kernels
+
+class TestKernel(unittest.TestCase):
+
+    

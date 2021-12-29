@@ -2,6 +2,8 @@
 Experimental Design for Gaussian Process Regression  
 A python package for performing experimental design for Gaussian Process Regression
 
+WARNING: I recently started converting this into idiomatic python 3 and adding unit testing so the state of this package is in-flux
+
 ## General Information
 
 Author: Alex Gorodetsky
