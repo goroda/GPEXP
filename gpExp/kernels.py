@@ -129,15 +129,15 @@ class KernelSquaredExponential(Kernel):
     for each dimension
     """
 
-    def __init__(self,  correlationLength, signalSize, dimension):
+    def __init__(self,  correlation_length, signal_size, dimension):
         """Initialize squared exponential kernel."""
         hyperParam = dict({})
-        if len(correlationLength) == 1:
-            correlationLength = np.tile(correlationLength, (dimension))
-        for ii in range(len(correlationLength)):
-            hyperParam['cl'+str(ii)] = correlationLength[ii]
+        if len(correlation_length) == 1:
+            correlation_length = np.tile(correlation_length, (dimension))
+        for ii in range(len(correlation_length)):
+            hyperParam['cl'+str(ii)] = correlation_length[ii]
 
-        hyperParam['signalSize'] = signalSize
+        hyperParam['signalSize'] = signal_size
         super().__init__(hyperParam, dimension)
 
     def evaluateF(self, x1, x2):
@@ -157,23 +157,26 @@ class KernelSquaredExponential(Kernel):
         return out
 
     def derivativeWrtHypParams(self, x1, x2):
-        #Assume that derivative is taken at current hyperparameters
-
-        assert x1.shape == x2.shape, "__evaluate() received non-equal shaped point sets"
+        """Compute Derivative w.r.t hyperparameters."""
+        assert x1.shape == x2.shape, \
+            "__evaluate() received non-equal shaped point sets"
 
         cl = np.zeros((self.dimension))
         for ii in range(self.dimension):
             cl[ii] = self.hyperParam['cl'+str(ii)]
-        
+
         out = {}
         evals = self.evaluateF(x1, x2)
         for key in self.hyperParam.keys():
             if key == 'signalSize':
-                out[key] = np.exp (-0.5 * np.sum((x1-x2)**2.0*np.tile(cl**-2.0, (x1.shape[0],1)),axis=1) )
+                out[key] = np.exp(-0.5 *
+                                  np.sum((x1-x2)**2.0 *
+                                         np.tile(cl**-2.0, (x1.shape[0], 1)),
+                                         axis=1))
             else:
-                direction = float(key[2:])# which direction
-                out[key] = evals*(x1[:,direction]-x2[:,direction])**2.0 \
-                                / cl[direction]**3.0
+                direction = int(key[2:])  # which direction
+                out[key] = evals*(x1[:, direction] - x2[:, direction])**2.0 / \
+                    cl[direction]**3.0
 
         return out
 

@@ -1,5 +1,3 @@
-"""Test Kernels."""
-
 # Code
 
 # Copyright (c) 2013-2016, Massachusetts Institute of Technology
@@ -22,11 +20,3 @@
 # along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
 # Code
-
-import unittest
-
-import ..gpExp.kernels as kernels
-
-class TestKernel(unittest.TestCase):
-
-    
