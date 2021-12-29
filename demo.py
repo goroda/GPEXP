@@ -1,39 +1,35 @@
-#Copyright (c) 2013-2016, Massachusetts Institute of Technology
-#Copyright (c) 2016-2022, Alex Gorodetsky
+# Copyright (c) 2013-2016, Massachusetts Institute of Technology
+# Copyright (c) 2016-2022, Alex Gorodetsky
 #
-#This file is part of GPEXP:
-#Author: Alex Gorodetsky alex@alexgorodetsky
+# This file is part of GPEXP:
+# Author: Alex Gorodetsky alex@alexgorodetsky
 #
-#GPEXP is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 2 of the License, or
-#(at your option) any later version.
+# GPEXP is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
 #
-#GPEXP is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
+# GPEXP is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#You should have received a copy of the GNU General Public License
-#along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
-#Code
+# Code
 
-
-
-#Numerics
 import numpy as np
+import matplotlib.pyplot as plt
 
-#Mine
+# Mine
 from gpExp.kernels import KernelSquaredExponential
-from gpExp.experimentalDesign import *
+from gpExp.experimentalDesign import * 
 from gpExp.gp import GP
 from gpExp.approximation import Space
 
-#Plotting
-import matplotlib.pyplot as plt
 
-#FUNCTION TO APPROXIMATE
+# FUNCTION TO APPROXIMATE
 def func(x):
 
     #out = np.sin(2.0*np.pi*x) + np.sin(4.0*np.pi*x) + np.sin(16.0*np.pi*x)
@@ -42,6 +38,7 @@ def func(x):
     if len(out.shape) == 2:
         return out[:,0]
     return out
+
 
 #DEMO FUNCTION CALLED BY __main__ below
 def demo():

@@ -1,25 +1,27 @@
-#Copyright (c) 2013-2016, Massachusetts Institute of Technology
-#Copyright (c) 2016-2022, Alex Gorodetsky
-#
-#This file is part of GPEXP:
-#Author: Alex Gorodetsky alex@alexgorodetsky
-#
-#GPEXP is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 2 of the License, or
-#(at your option) any later version.
-#
-#GPEXP is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-#
-#You should have received a copy of the GNU General Public License
-#along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
+"""Gaussian Process."""
 
-#Code
+# Code
 
+# Copyright (c) 2013-2016, Massachusetts Institute of Technology
+# Copyright (c) 2016-2022, Alex Gorodetsky
+#
+# This file is part of GPEXP:
+# Author: Alex Gorodetsky alex@alexgorodetsky
+#
+# GPEXP is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# GPEXP is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
+# Code
 
 import numpy as np
 
@@ -28,26 +30,25 @@ try:
     NLOPT = True
 except ImportError:
     NLOPT = False
- 
-#NLOPT = False
+
+# NLOPT = False
 if NLOPT is False:
     try:
-        from  scipy.optimize import fmin_slsqp as slsqp
-        from  scipy.optimize import fmin_cobyla as cobyla
-        from  scipy.optimize import fmin_l_bfgs_b as bfgs
+        # from scipy.optimize import fmin_slsqp as slsqp
+        # from scipy.optimize import fmin_cobyla as cobyla
+        from scipy.optimize import fmin_l_bfgs_b as bfgs
     except ImportError:
         print("Warning: no optimization package found!")
 
-import multiprocessing as mp
 import copy
-import itertools
 from .gp_kernel_utilities import calculateCovarianceMatrix
 from . import parallel_utilities
 from . import gp_kernel_utilities
 
 
-class GP(object):
-    """ This is the GP class with prior mean is zero """
+class GP:
+    """This is the GP class with prior mean is zero."""
+
     coeff = None
     precisionMatrix = None
     covarianceMatrix = None
@@ -59,7 +60,7 @@ class GP(object):
     def __init__(self, kernel_in, noiseIn, **kwargs):
         """ Initialize the GP class """
         try:
-            self.kernel = copy.deepcopy(kernel_in) # this is a kernel class
+            self.kernel = copy.deepcopy(kernel_in) 
         except:
             print("warning ")
             self.kernel = copy.copy(kernel_in)
@@ -636,5 +637,3 @@ class GP(object):
             #print "sol ", np.round(sol,4)
             val = objFunc(sol)
             return sol,val
-#===============================================================================
-        

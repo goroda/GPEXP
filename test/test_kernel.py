@@ -1,3 +1,7 @@
+"""Test Kernels."""
+
+# Code
+
 # Copyright (c) 2013-2016, Massachusetts Institute of Technology
 # Copyright (c) 2016-2022, Alex Gorodetsky
 #
@@ -18,19 +22,3 @@
 # along with GPEXP.  If not, see <http://www.gnu.org/licenses/>.
 
 # Code
-
-class Space:
-
-    """ The Space class describes the space and weighting in which we are interested """
-    dimension = None
-    inBoundsBool = None
-    sample = None # function
-    probDensity = None
-    noiseFunc = None
-
-    def __init__(self, dimensionIn,  samplerIn, probDensityIn, noise=None):
-        """ Initialize Space class """
-        self.dimension = dimensionIn
-        self.sample = samplerIn
-        self.probDensity = probDensityIn
-        self.noiseFunc = noise
