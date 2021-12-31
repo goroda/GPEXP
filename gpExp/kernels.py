@@ -24,7 +24,6 @@
 # Code
 
 import numpy as np
-import math
 import abc
 
 
@@ -32,7 +31,7 @@ class Kernel(abc.ABC):
     """This is a Kernel Class.
 
     This is an abstract base class from which specific 
-    kernels need to inherit and implement the `evaluateF` function
+    kernels need to inherit and implement the `_evaluateF` function
     """
 
     def __init__(self, hyperParam, dimension, *argc):
@@ -71,16 +70,16 @@ class Kernel(abc.ABC):
             f" Incorrect dimension of input: {x1.shape, x2.shape}"
 
         if nPointsx1 > nPointsx2:
-            out = self.evaluateF(x1, np.tile(x2, (nPointsx1, 1)))
+            out = self._evaluateF(x1, np.tile(x2, (nPointsx1, 1)))
         elif nPointsx1 < nPointsx2:
-            out = self.evaluateF(np.tile(x1, (nPointsx2, 1)), x2)
+            out = self._evaluateF(np.tile(x1, (nPointsx2, 1)), x2)
         else:
-            out = self.evaluateF(x1, x2)
+            out = self._evaluateF(x1, x2)
 
         return out
 
     @abc.abstractmethod
-    def evaluateF(self, x1, x2):
+    def _evaluateF(self, x1, x2):
         """Evaluate the kernel.
 
         Parameters
@@ -137,10 +136,9 @@ class KernelIsoMatern(Kernel):
         self.nu = nu
         super().__init__(hyperParam, dimension)
 
-    def evaluateF(self, x1, x2):
+    def _evaluateF(self, x1, x2):
         """Private evaluate method in which x1 and x2 are the same shape."""
-        assert x1.shape == x2.shape, \
-            "__evaluate() received non-equal shaped point sets"
+        super()._evaluateF(x1, x2)
 
         if np.abs(1.5-self.nu) < 1e-10:
             d = np.sqrt(np.sum((x1-x2)**2.0, axis=1))
@@ -150,10 +148,16 @@ class KernelIsoMatern(Kernel):
 
     def derivativeWrtHypParams(self, x1, x2):
         """Compute Derivative with respect to hyperparameters."""
-        assert x1.shape == x2.shape, \
-            "__evaluate() received non-equal shaped point sets"
-        raise AttributeError(
-            "derivativeWrtHypParams not implemented for KernelIsoMatern")
+        # super().derivativeWrtHypParams(x1, x2)
+        raise NotImplementedError(
+            "derivativeWrtHypParams not implemented for"
+            "KernelIsoMatern")
+
+    def derivative(self, x1, x2):
+        """Compute Derivative."""
+        raise NotImplementedError(
+            "derivative not implemented for"
+            "KernelIsoMatern")
 
 
 class KernelSquaredExponential(Kernel):
@@ -174,9 +178,9 @@ class KernelSquaredExponential(Kernel):
         hyperParam['signalSize'] = signal_size
         super().__init__(hyperParam, dimension)
 
-    def evaluateF(self, x1, x2):
+    def _evaluateF(self, x1, x2):
         """Evaluate."""
-        super().evaluateF(x1, x2)
+        super()._evaluateF(x1, x2)
 
         cl = np.zeros((self.dimension))
         for ii in range(self.dimension):
@@ -198,7 +202,7 @@ class KernelSquaredExponential(Kernel):
             cl[ii] = self._hyperParam['cl'+str(ii)]
 
         out = {}
-        evals = self.evaluateF(x1, x2)
+        evals = self._evaluateF(x1, x2)
         for key in self._hyperParam.keys():
             if key == 'signalSize':
                 out[key] = np.exp(-0.5 *
@@ -236,10 +240,12 @@ class KernelMehler1D(Kernel):
 
     def __init__(self, tIn):
         """Initialize."""
+        if (tIn < -1 or tIn > 1):
+            raise ValueError("Mehler parameter must be between (-1,1)")
         hyperParam = dict({'t': tIn})
         super().__init__(hyperParam, 1)
 
-    def evaluateF(self, x1, x2):
+    def _evaluateF(self, x1, x2):
         """Evaluate.
 
         Parameter
@@ -272,102 +278,68 @@ class KernelMehler1D(Kernel):
         return out
 
     def derivative(self, x1, x2):
-        """Derivative of Mehler 1D kernel.
-        input:
-            point1 : ndarray 
-            point2 : 1xdimension
+        """Compute Derivative of Mehler 1D kernel."""
+        super().derivative(x1, x2)
 
-        output: 
-            evaluation : float or ndarray 
-                derivative of Gaussian function around point2     
-                out[jj, ii] = dK(point1[jj,:], point2) / d point1[jj,ii]
-                    
-        This function defines the Mehler Kernel Derivative
-        
-        Note:
-        If we define K(x_1) = K(x_1, x_2) 
-        then this function computes dK(x_1)/dx_1 which is vector valued (size of dimension
-
-        """  
-        assert len(x2.shape) > 1 and len(x1.shape) > 1, "Must supply nd arrays to evaluation function"
-        assert x2.shape[0] == 1 and x2.shape[1] == self.dimension, "x2 not in correct shape"
-        assert x1.shape[0] > 0 and x1.shape[1] == self.dimension, "x1 not in correct shape"
-        
         nPointsx1 = x1.shape[0]
-        rEvals = self.evaluate(x1,x2)
-        out = -0.5 * ( 2.0* x1 * self._hyperParam['t']**2.0 -\
-                        2.0*self._hyperParam['t']*np.tile(x2, (nPointsx1,1)))/ \
-                        (1.0-self._hyperParam['t']**2.0) *\
-                         np.reshape(rEvals, (nPointsx1,1)) 
-        
+        rEvals = self.evaluate(x1, x2[np.newaxis, :])[:, np.newaxis]
+        x2t = np.tile(x2, (nPointsx1, 1))
+        num = 2.0 * x1 * self._hyperParam['t']**2.0 - \
+            2.0 * self._hyperParam['t'] * x2t
+        out = -0.5 * num / (1.0 - self._hyperParam['t']**2.0) * rEvals
+
         return out
 
+    def derivativeWrtHypParams(self, x1, x2):
+        """Compute Derivative with respect to hyperparameters."""
+        # super().derivativeWrtHypParams(x1, x2)
+        raise NotImplementedError(
+            "derivativeWrtHypParams not implemented for"
+            "KernelIsoMatern")
 
-    
+
 class KernelMehlerND(Kernel):
     """Mehler kernel in N dimensions."""
-    def __init__(self, tIn, dimension):
+
+    def __init__(self, tIn):
+        """Initialize."""
         hyperParam = dict({})
         self.oneDKern = []
-        for ii in range(dimension):
+        for ii in range(len(tIn)):
             hyperParam[ii] = tIn[ii]
-            self.oneDKern.append(KernelMehler1D(tIn[ii], 1))
-        super(KernelMehlerND, self).__init__(hyperParam, dimension)
-    
+            self.oneDKern.append(KernelMehler1D(tIn[ii]))
+        super(KernelMehlerND, self).__init__(hyperParam, len(tIn))
+
     def updateHyperParameters(self, params):
-        for keys in self._hyperParam.keys():
+        """Update Hyperparameters."""
+        for keys in self._hyperParam:
             self._hyperParam[keys] = params[keys]
 
         for ii in range(self.dimension):
-            self.oneDKern[ii].updateHyperParameters(dict({'t':self._hyperParam[ii]}))
+            self.oneDKern[ii].updateHyperParameters(
+                {'t': self._hyperParam[ii]})
 
-    def evaluateF(self, x1, x2):
-        """ 
-        Parameter
-        --------    
-        x1 : 1darray 
-            n x dimension
-        x2 : 1darray  
-            n x dimension
+    def _evaluateF(self, x1, x2):
+        super()._evaluateF(x1, x2)
 
-        Returns
-        ------- 
-        evaluation : float or 1darray      
-                
-        Notes
-        ----- 
-
-        """
-        
-        assert x1.shape == x2.shape, "__evaluate() received non-equal shaped point sets"
         nPoints = x1.shape[0]
         out = np.ones((x1.shape[0]))
-        #print "x1 ", x1
-        #print "x2 ", x2
         for ii, kern in enumerate(self.oneDKern):
-            newVal = kern.evaluate(x1[:,ii].reshape((nPoints,1)),x2[:,ii].reshape((nPoints,1)))
-            
-            #print "newVal ", newVal
-            out = out*newVal
+            newVal = kern.evaluate(x1[:, ii].reshape((nPoints, 1)),
+                                   x2[:, ii].reshape((nPoints, 1)))
+
+            out = out * newVal
         return out
 
     def derivative(self, x1, x2):
-        """ Derivative of Mehler 2D kernel
-        input:
-            point1 : ndarray 
-            point2 : 1xdimension
+        """Compute the derivative."""
+        super().derivative(x1, x2)
+        raise NotImplementedError(
+            "derivative of KernelMehlerND not yet implemented")
 
-        output: 
-            evaluation : float or ndarray 
-                derivative of Gaussian function around point2     
-                out[jj, ii] = dK(point1[jj,:], point2) / d point1[jj,ii]
-                    
-        This function defines the Mehler Kernel Derivative
-        
-        Note:
-        If we define K(x_1) = K(x_1, x_2) 
-        then this function computes dK(x_1)/dx_1 which is vector valued (size of dimension
-
-        """  
-        raise AttributeError("derivative of KernelMehlerND not yet implemented")
-
+    def derivativeWrtHypParams(self, x1, x2):
+        """Compute Derivative with respect to hyperparameters."""
+        # super().derivativeWrtHypParams(x1, x2)
+        raise NotImplementedError(
+            "derivativeWrtHypParams not implemented for"
+            "KernelIsoMatern")

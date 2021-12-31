@@ -133,3 +133,113 @@ class TestKernelSquaredExponential(unittest.TestCase):
         self.assertAlmostEqual(should_be[0, 1], derivs[0, 1], 10)
         self.assertAlmostEqual(should_be[1, 0], derivs[1, 0], 10)
         self.assertAlmostEqual(should_be[1, 1], derivs[1, 1], 10)
+
+
+class TestKernelMehler1D(unittest.TestCase):
+
+    def setUp(self):
+        self.rho = 0.5
+        self.kernel = kernels.KernelMehler1D(self.rho)
+
+    def test_mehler(self):
+
+        drho = 1 - self.rho**2
+        pre = 1.0 / np.sqrt(drho)
+        den = 2 * drho
+
+        x1 = np.array([[0.2]])
+        x2 = np.array([[0.8]])
+
+        val = self.kernel.evaluate(x1, x2)
+        self.assertEqual(1, val.ndim, "val is not the correct size")
+        self.assertEqual(1, val.shape[0], "not correct num elems")
+
+        num = (self.rho**2 * (x1**2 + x2**2) - 2 * self.rho * x1 * x2)
+        should_be = pre * np.exp(-num / den).flatten()
+        self.assertAlmostEqual(should_be[0], val[0], 7, "not equal!")
+
+    @unittest.skip("not yet implemented")
+    def test_mehler_derivative_wrt_hyp(self):
+        """Test the derviative with respect to the hyperparameters."""
+        pass
+
+    def test_mehler_derivative(self):
+        """Test the derivative with respect to the first argument."""
+
+        drho = 1 - self.rho**2
+        pre = 1.0 / np.sqrt(drho)
+        den = 2 * drho
+
+        x1 = np.array([[2.0], [4.0]])
+        x2 = np.array([0.2])
+
+        derivs = self.kernel.derivative(x1, x2)
+
+        self.assertEqual(2, derivs.ndim)
+        self.assertEqual(1, derivs.shape[1])
+        self.assertEqual(2, derivs.shape[0])
+
+        num = (self.rho**2 * (x1**2 + x2**2) - 2 * self.rho * x1 * x2)
+        vals = pre * np.exp(-num / den).flatten()
+
+        num_two = -(self.rho**2 * 2 * x1.flatten() - 2 * self.rho * x2.flatten())
+        should_be = vals * num_two / den
+
+        self.assertAlmostEqual(should_be[0], derivs[0, 0], 10)
+        self.assertAlmostEqual(should_be[1], derivs[1, 0], 10)
+
+
+class TestKernelMehlerND(unittest.TestCase):
+
+    def setUp(self):
+        self.rho = np.array([0.5, 0.3])
+        self.kernel = kernels.KernelMehlerND(self.rho)
+
+    def test_mehler(self):
+
+        drho = 1 - self.rho**2
+        pre = 1.0 / np.sqrt(drho)
+        den = 2 * drho
+
+        x1 = np.array([[0.2, 0.7]])
+        x2 = np.array([[0.8, -0.2]])
+
+        val = self.kernel.evaluate(x1, x2)
+        self.assertEqual(1, val.ndim, "val is not the correct size")
+        self.assertEqual(1, val.shape[0], "not correct num elems")
+
+        num = (self.rho**2 * (x1**2 + x2**2) - 2 * self.rho * x1 * x2)
+        should_be = pre * np.exp(-num / den)
+        self.assertAlmostEqual(np.prod(should_be), val[0], 7, "not equal!")
+
+    @unittest.skip("not yet implemented")
+    def test_mehler_derivative_wrt_hyp(self):
+        """Test the derviative with respect to the hyperparameters."""
+        pass
+
+    @unittest.skip("not yet implemented")    
+    def test_mehler_derivative(self):
+        """Test the derivative with respect to the first argument."""
+
+        drho = 1 - self.rho**2
+        pre = 1.0 / np.sqrt(drho)
+        den = 2 * drho
+
+        x1 = np.array([[2.0], [4.0]])
+        x2 = np.array([0.2])
+
+        derivs = self.kernel.derivative(x1, x2)
+
+        self.assertEqual(2, derivs.ndim)
+        self.assertEqual(1, derivs.shape[1])
+        self.assertEqual(2, derivs.shape[0])
+
+        num = (self.rho**2 * (x1**2 + x2**2) - 2 * self.rho * x1 * x2)
+        vals = pre * np.exp(-num / den).flatten()
+
+        num_two = -(self.rho**2 * 2 * x1.flatten() - 2 * self.rho * x2.flatten())
+        should_be = vals * num_two / den
+
+        self.assertAlmostEqual(should_be[0], derivs[0, 0], 10)
+        self.assertAlmostEqual(should_be[1], derivs[1, 0], 10)
+        
