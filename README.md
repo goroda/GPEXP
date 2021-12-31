@@ -45,3 +45,13 @@ The current software contains the following options for kernels and experimental
   * Conditional Entropy
   * Mutual Information
   
+  
+## For developers
+
+Unit test by running the following from the base directory
+
+```shell
+
+python -m unittest
+
+```

@@ -1,3 +1,7 @@
+"""Experiemental Design."""
+
+# Code
+
 # Copyright (c) 2013-2016, Massachusetts Institute of Technology
 # Copyright (c) 2016-2022, Alex Gorodetsky
 #
