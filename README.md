@@ -55,3 +55,8 @@ Unit test by running the following from the base directory
 python -m unittest
 
 ```
+
+## TODO
+
+- Complete existing kernel implementations
+- Add some more common implementations
